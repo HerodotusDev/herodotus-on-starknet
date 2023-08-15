@@ -48,7 +48,7 @@ contract L1MessagesSender {
     /// @notice Send an exact L1 parent hash to L2
     /// @param blockNumber_ the child block of the requested parent hash
     /// @param slashingRewardL2Recipient_ L2 address of the reward recipient if slashing occurs
-    function proveFraudalentRelay(
+    function proveFraudulentRelay(
         uint256 blockNumber_,
         uint256 slashingRewardL2Recipient_
     ) external {
