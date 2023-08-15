@@ -12,6 +12,8 @@ trait ICommitmentsInbox<TContractState> {
 
     fn receive_commitment(ref self: TContractState, from_address: felt252, blockhash: u256, block_number: u256);
     fn receive_commitment_owner(ref self: TContractState, blockhash: u256, block_number: u256);
+
+    fn receive_mmr(ref self: TContractState, from_address: felt252, root: felt252, last_pos: usize);
 }
 
 #[starknet::contract]
@@ -32,7 +34,8 @@ mod CommitmentsInbox {
     enum Event {
         OwnershipTransferred: OwnershipTransferred,
         OwnershipRenounced: OwnershipRenounced,
-        CommitmentReceived: CommitmentReceived
+        CommitmentReceived: CommitmentReceived,
+        MMRReceived: MMRReceived
     }
 
     #[derive(Drop, starknet::Event)]
@@ -50,6 +53,12 @@ mod CommitmentsInbox {
     struct CommitmentReceived {
         blockhash: u256,
         block_number: u256
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct MMRReceived {
+        root: felt252,
+        last_pos: usize
     }
 
     #[constructor]
@@ -121,6 +130,19 @@ mod CommitmentsInbox {
             self.emit(Event::CommitmentReceived(CommitmentReceived {
                 blockhash,
                 block_number
+            }));
+        }
+
+        // TODO add [l1_handler]
+        fn receive_mmr(ref self: ContractState, from_address: felt252, root: felt252, last_pos: usize) {
+            assert(from_address == self.l1_message_sender.read(), 'Invalid sender');
+            
+            let contract_address = self.headers_store.read();
+            IHeadersStoreDispatcher { contract_address }.create_branch(root, last_pos);
+
+            self.emit(Event::MMRReceived(MMRReceived {
+                root,
+                last_pos
             }));
         }
     }

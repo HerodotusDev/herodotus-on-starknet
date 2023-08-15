@@ -9,6 +9,7 @@ trait IHeadersStore<TContractState> {
     fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
     fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
+    fn get_latest_mmr_id(self: @TContractState) -> usize;
 
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
     fn process_received_block(
@@ -34,6 +35,10 @@ trait IHeadersStore<TContractState> {
         proof: Proof,
         mmr_id: usize,
     ) -> bool;
+
+    fn create_branch(ref self: TContractState, root: felt252, last_pos: usize);
+    fn create_branch_empy(ref self: TContractState);
+    fn create_branch_from(ref self: TContractState, mmr_id: usize);
 }
 
 #[starknet::contract]
@@ -51,19 +56,22 @@ mod HeadersStore {
     use traits::{Into, TryInto};
     use result::ResultTrait;
     use option::OptionTrait;
+    use clone::Clone;
 
     #[storage]
     struct Storage {
         commitments_inbox: ContractAddress,
         mmr: LegacyMap::<usize, MMR>,
-        received_blocks: LegacyMap::<u256, u256>
+        received_blocks: LegacyMap::<u256, u256>,
+        latest_mmr_id: usize
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
         HashReceived: HashReceived,
-        ProcessedBlock: ProcessedBlock
+        ProcessedBlock: ProcessedBlock,
+        BranchCreated: BranchCreated
     }
 
     #[derive(Drop, starknet::Event)]
@@ -79,10 +87,18 @@ mod HeadersStore {
         blockhash_poseidon: felt252
     }
 
+    #[derive(Drop, starknet::Event)]
+    struct BranchCreated {
+        mmr_id: usize,
+        root: felt252,
+        last_pos: usize
+    }
+
     #[constructor]
     fn constructor(ref self: ContractState, commitments_inbox: ContractAddress) {
         self.commitments_inbox.write(commitments_inbox);
         self.mmr.write(0, Default::default());
+        self.latest_mmr_id.write(0);
     }
 
     #[external(v0)]
@@ -101,6 +117,10 @@ mod HeadersStore {
 
         fn get_received_block(self: @ContractState, block_number: u256) -> u256 {
             self.received_blocks.read(block_number)
+        }
+
+        fn get_latest_mmr_id(self: @ContractState) -> usize {
+            self.latest_mmr_id.read()
         }
 
         fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
@@ -201,6 +221,56 @@ mod HeadersStore {
             let mmr = self.mmr.read(mmr_id);
             // TODO error handling
             mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+        }
+
+        fn create_branch(ref self: ContractState, root: felt252, last_pos: usize) {
+            let caller = get_caller_address();
+            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
+
+            let mmr_id = self.latest_mmr_id.read() + 1;
+            let mmr = MMRTrait::new(root, last_pos);
+            self.mmr.write(mmr_id, mmr);
+            self.latest_mmr_id.write(mmr_id);
+
+            self.emit(Event::BranchCreated(BranchCreated {
+                mmr_id,
+                root,
+                last_pos
+            }));
+        }
+
+        fn create_branch_empy(ref self: ContractState) {
+            let mmr_id = self.latest_mmr_id.read() + 1;
+            let mmr: MMR = Default::default();
+
+            let root = mmr.root;
+            let last_pos = mmr.last_pos;
+
+            self.mmr.write(mmr_id, mmr);
+            self.latest_mmr_id.write(mmr_id);
+
+            self.emit(Event::BranchCreated(BranchCreated {
+                mmr_id,
+                root,
+                last_pos
+            }));
+        }
+
+        fn create_branch_from(ref self: ContractState, mmr_id: usize) {
+            let mmr_id = self.latest_mmr_id.read() + 1;
+            let mmr = self.mmr.read(mmr_id);
+
+            let root = mmr.root;
+            let last_pos = mmr.last_pos;
+
+            self.mmr.write(mmr_id, mmr.clone());
+            self.latest_mmr_id.write(mmr_id);
+
+            self.emit(Event::BranchCreated(BranchCreated {
+                mmr_id,
+                root,
+                last_pos
+            }));
         }
     }
 
