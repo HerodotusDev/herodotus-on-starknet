@@ -6,8 +6,8 @@ use cairo_lib::utils::types::bytes::Bytes;
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
     fn get_commitments_inbox(self: @TContractState) -> ContractAddress;
-    fn get_mmr_root(self: @TContractState) -> felt252;
-    fn get_mmr_size(self: @TContractState) -> usize;
+    fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
+    fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
 
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
@@ -16,12 +16,14 @@ trait IHeadersStore<TContractState> {
         block_number: u256, 
         header_rlp: Bytes,
         mmr_peaks: Peaks,
+        mmr_id: usize,
     );
     fn process_chunk(
         ref self: TContractState,
         initial_block: u256, 
         headers_rlp: Span<Bytes>,
         mmr_peaks: Peaks,
+        mmr_id: usize,
     );
 
     fn verify_mmr_inclusion(
@@ -30,6 +32,7 @@ trait IHeadersStore<TContractState> {
         blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
+        mmr_id: usize,
     ) -> bool;
 }
 
@@ -52,8 +55,7 @@ mod HeadersStore {
     #[storage]
     struct Storage {
         commitments_inbox: ContractAddress,
-        // block_number => blockhash
-        mmr: MMR,
+        mmr: LegacyMap::<usize, MMR>,
         received_blocks: LegacyMap::<u256, u256>
     }
 
@@ -80,7 +82,7 @@ mod HeadersStore {
     #[constructor]
     fn constructor(ref self: ContractState, commitments_inbox: ContractAddress) {
         self.commitments_inbox.write(commitments_inbox);
-        self.mmr.write(Default::default());
+        self.mmr.write(0, Default::default());
     }
 
     #[external(v0)]
@@ -89,12 +91,12 @@ mod HeadersStore {
             self.commitments_inbox.read()
         }
 
-        fn get_mmr_root(self: @ContractState) -> felt252 {
-            self.mmr.read().root
+        fn get_mmr_root(self: @ContractState, mmr_id: usize) -> felt252 {
+            self.mmr.read(mmr_id).root
         }
 
-        fn get_mmr_size(self: @ContractState) -> usize {
-            self.mmr.read().last_pos
+        fn get_mmr_size(self: @ContractState, mmr_id: usize) -> usize {
+            self.mmr.read(mmr_id).last_pos
         }
 
         fn get_received_block(self: @ContractState, block_number: u256) -> u256 {
@@ -118,6 +120,7 @@ mod HeadersStore {
             block_number: u256, 
             header_rlp: Bytes,
             mmr_peaks: Peaks,
+            mmr_id: usize,
         ) {
             let blockhash = self.received_blocks.read(block_number);
             assert(blockhash != Zeroable::zero(), 'Block not received');
@@ -127,7 +130,7 @@ mod HeadersStore {
 
             let poseidon_hash = InternalFunctions::poseidon_hash_rlp(header_rlp);
 
-            let mut mmr = self.mmr.read();
+            let mut mmr = self.mmr.read(mmr_id);
             mmr.append(poseidon_hash, mmr_peaks);
 
             self.emit(Event::ProcessedBlock(ProcessedBlock {
@@ -142,6 +145,7 @@ mod HeadersStore {
             initial_block: u256, 
             headers_rlp: Span<Bytes>,
             mmr_peaks: Peaks,
+            mmr_id: usize,
         ) {
             let initial_blockhash = self.received_blocks.read(initial_block);
             assert(initial_blockhash != Zeroable::zero(), 'Block not received');
@@ -173,7 +177,7 @@ mod HeadersStore {
 
                 let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
 
-                let mut mmr = self.mmr.read();
+                let mut mmr = self.mmr.read(mmr_id);
                 mmr.append(poseidon_hash, mmr_peaks);
 
                 self.emit(Event::ProcessedBlock(ProcessedBlock {
@@ -192,8 +196,9 @@ mod HeadersStore {
             blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
+            mmr_id: usize,
         ) -> bool {
-            let mmr = self.mmr.read();
+            let mmr = self.mmr.read(mmr_id);
             // TODO error handling
             mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
         }

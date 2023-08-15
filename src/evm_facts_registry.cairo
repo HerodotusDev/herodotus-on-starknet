@@ -27,6 +27,7 @@ trait IEVMFactsRegistry<TContractState> {
         mmr_index: usize,
         mmr_peaks: Peaks,
         mmr_proof: Proof, 
+        mmr_id: usize,
     );
     fn prove_storage(
         ref self: TContractState, 
@@ -123,11 +124,12 @@ mod EVMFactsRegistry {
             mmr_index: usize,
             mmr_peaks: Peaks,
             mmr_proof: Proof, 
+            mmr_id: usize,
         ) {
             let blockhash = InternalFunctions::poseidon_hash_rlp(block_header_rlp);
 
             let contract_address = self.headers_store.read();
-            let mmr_inclusion = IHeadersStoreDispatcher { contract_address }.verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof);
+            let mmr_inclusion = IHeadersStoreDispatcher { contract_address }.verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id);
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
             let (decoded_rlp, _) = rlp_decode(block_header_rlp).unwrap();
