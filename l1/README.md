@@ -1,19 +1,10 @@
-## Foundry
+## L1MessagesSender
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Introduction
 
-Foundry consists of:
+This is a simple contract that can send L1 block hashes, Poseidon Merkle Mountain Range (MMR) and Keccak MMR tree root hashes alongside tree sizes read from one of our aggregators contract.
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
+The recipient is sitting on the other side on L2 (Starknet). We are using the native messaging system to communicate between those two layers.
 
 ### Build
 
@@ -43,12 +34,6 @@ $ forge snapshot
 
 ```shell
 $ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
 ### Cast
