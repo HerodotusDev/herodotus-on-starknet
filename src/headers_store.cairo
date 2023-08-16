@@ -35,6 +35,15 @@ trait IHeadersStore<TContractState> {
         proof: Proof,
         mmr_id: usize,
     ) -> bool;
+    fn verify_historical_mmr_inclusion(
+        self: @TContractState,
+        index: usize,
+        blockhash: felt252,
+        peaks: Peaks,
+        proof: Proof,
+        mmr_id: usize,
+        last_pos: usize,
+    ) -> bool;
 
     fn create_branch(ref self: TContractState, root: felt252, last_pos: usize);
     fn create_branch_empy(ref self: TContractState);
@@ -62,6 +71,8 @@ mod HeadersStore {
     struct Storage {
         commitments_inbox: ContractAddress,
         mmr: LegacyMap::<usize, MMR>,
+        // (id, size) => root
+        mmr_history: LegacyMap::<(usize, usize), felt252>,
         received_blocks: LegacyMap::<u256, u256>,
         latest_mmr_id: usize
     }
@@ -97,7 +108,12 @@ mod HeadersStore {
     #[constructor]
     fn constructor(ref self: ContractState, commitments_inbox: ContractAddress) {
         self.commitments_inbox.write(commitments_inbox);
-        self.mmr.write(0, Default::default());
+
+        let mmr: MMR = Default::default();
+        let root = mmr.root;
+
+        self.mmr.write(0, mmr);
+        self.mmr_history.write((0, 0), root);
         self.latest_mmr_id.write(0);
     }
 
@@ -153,6 +169,8 @@ mod HeadersStore {
             let mut mmr = self.mmr.read(mmr_id);
             mmr.append(poseidon_hash, mmr_peaks);
 
+            self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
+
             self.emit(Event::ProcessedBlock(ProcessedBlock {
                 block_number,
                 blockhash,
@@ -174,6 +192,7 @@ mod HeadersStore {
             assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
             let mut i: usize = 1;
+            let mut mmr = self.mmr.read(mmr_id);
             loop {
                 if i == headers_rlp.len() {
                     break ();
@@ -197,7 +216,6 @@ mod HeadersStore {
 
                 let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
 
-                let mut mmr = self.mmr.read(mmr_id);
                 mmr.append(poseidon_hash, mmr_peaks);
 
                 self.emit(Event::ProcessedBlock(ProcessedBlock {
@@ -208,6 +226,8 @@ mod HeadersStore {
 
                 i += 1;
             };
+
+            self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
         }
 
         fn verify_mmr_inclusion(
@@ -223,6 +243,21 @@ mod HeadersStore {
             mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
         }
 
+        fn verify_historical_mmr_inclusion(
+            self: @ContractState,
+            index: usize,
+            blockhash: felt252,
+            peaks: Peaks,
+            proof: Proof,
+            mmr_id: usize,
+            last_pos: usize,
+        ) -> bool {
+            // TODO error handling
+            let root = self.mmr_history.read((mmr_id, last_pos));
+            let mmr = MMRTrait::new(root, last_pos);
+            mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+        }
+
         fn create_branch(ref self: ContractState, root: felt252, last_pos: usize) {
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
@@ -230,6 +265,7 @@ mod HeadersStore {
             let mmr_id = self.latest_mmr_id.read() + 1;
             let mmr = MMRTrait::new(root, last_pos);
             self.mmr.write(mmr_id, mmr);
+            self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
             self.emit(Event::BranchCreated(BranchCreated {
@@ -247,6 +283,7 @@ mod HeadersStore {
             let last_pos = mmr.last_pos;
 
             self.mmr.write(mmr_id, mmr);
+            self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
             self.emit(Event::BranchCreated(BranchCreated {
@@ -264,6 +301,7 @@ mod HeadersStore {
             let last_pos = mmr.last_pos;
 
             self.mmr.write(mmr_id, mmr.clone());
+            self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
             self.emit(Event::BranchCreated(BranchCreated {
