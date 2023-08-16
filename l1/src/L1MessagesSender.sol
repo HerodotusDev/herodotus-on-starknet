@@ -97,48 +97,22 @@ contract L1MessagesSender {
 
         IAggregator aggregator = IAggregator(existingAggregatorAddr);
         bytes32 poseidonMMRRoot = aggregator.getMMRPoseidonRoot();
-        bytes32 keccakMMRRoot = aggregator.getMMRKeccakRoot();
         uint256 mmrSize = aggregator.getMMRSize();
 
         require(mmrSize >= 1, "Invalid tree size");
         require(poseidonMMRRoot != bytes32(0), "Invalid root (Poseidon)");
-        require(keccakMMRRoot != bytes32(0), "Invalid root (Keccak)");
 
-        _sendMMRTreesToL2(poseidonMMRRoot, keccakMMRRoot, mmrSize);
+        _sendPoseidonMMRTreeToL2(poseidonMMRRoot, mmrSize);
     }
 
-    function _sendMMRTreesToL2(
+    function _sendPoseidonMMRTreeToL2(
         bytes32 poseidonMMRRoot,
-        bytes32 keccakMMRRoot,
         uint256 mmrSize
     ) internal {
-        uint256[] memory message = new uint256[](9);
+        uint256[] memory message = new uint256[](2);
 
-        // Poseidon MMR root hash
-        (
-            bytes8 poseidonRootHashWord1,
-            bytes8 poseidonRootHashWord2,
-            bytes8 poseidonRootHashWord3,
-            bytes8 poseidonRootHashWord4
-        ) = FormatWords64.fromBytes32(poseidonMMRRoot);
-
-        // Keccak MMR root hash
-        (
-            bytes8 keccakRootHashWord1,
-            bytes8 keccakRootHashWord2,
-            bytes8 keccakRootHashWord3,
-            bytes8 keccakRootHashWord4
-        ) = FormatWords64.fromBytes32(keccakMMRRoot);
-
-        message[0] = uint256(uint64(poseidonRootHashWord1));
-        message[1] = uint256(uint64(poseidonRootHashWord2));
-        message[2] = uint256(uint64(poseidonRootHashWord3));
-        message[3] = uint256(uint64(poseidonRootHashWord4));
-        message[4] = uint256(uint64(keccakRootHashWord1));
-        message[5] = uint256(uint64(keccakRootHashWord2));
-        message[6] = uint256(uint64(keccakRootHashWord3));
-        message[7] = uint256(uint64(keccakRootHashWord4));
-        message[8] = mmrSize;
+        message[0] = uint256(poseidonMMRRoot);
+        message[1] = mmrSize;
 
         starknetCore.sendMessageToL2(
             l2RecipientAddr,
