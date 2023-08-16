@@ -12,7 +12,7 @@ contract L1MessagesSender {
 
     uint256 public immutable l2RecipientAddr;
 
-    IAggregatorsFactory public immutable aggregatorsFactoryAddr;
+    IAggregatorsFactory public immutable aggregatorsFactory;
 
     /// @dev L2 "receive_commitment" L1 handler selector
     uint256 constant RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR =
@@ -32,7 +32,7 @@ contract L1MessagesSender {
     ) {
         starknetCore = starknetCore_;
         l2RecipientAddr = l2RecipientAddr_;
-        aggregatorsFactoryAddr = IAggregatorsFactory(aggregatorsFactoryAddr_);
+        aggregatorsFactory = IAggregatorsFactory(aggregatorsFactoryAddr_);
     }
 
     /// @notice Send an exact L1 parent hash to L2
@@ -79,8 +79,9 @@ contract L1MessagesSender {
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
     function sendPoseidonMMRTreeToL2(uint256 aggregatorId) external {
-        address existingAggregatorAddr = aggregatorsFactoryAddr
-            .getAggregatorById(aggregatorId);
+        address existingAggregatorAddr = aggregatorsFactory.getAggregatorById(
+            aggregatorId
+        );
 
         require(existingAggregatorAddr != address(0), "Unknown aggregator");
 
