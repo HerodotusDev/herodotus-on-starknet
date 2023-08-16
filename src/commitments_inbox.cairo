@@ -136,7 +136,7 @@ mod CommitmentsInbox {
         assert(from_address == self.l1_message_sender.read(), 'Invalid sender');
         
         let contract_address = self.headers_store.read();
-        IHeadersStoreDispatcher { contract_address }.create_branch(root, last_pos);
+        IHeadersStoreDispatcher { contract_address }.create_branch_from_message(root, last_pos);
 
         self.emit(Event::MMRReceived(MMRReceived {
             root,

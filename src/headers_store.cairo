@@ -45,8 +45,15 @@ trait IHeadersStore<TContractState> {
         last_pos: usize,
     ) -> bool;
 
-    fn create_branch(ref self: TContractState, root: felt252, last_pos: usize);
-    fn create_branch_empy(ref self: TContractState);
+    fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
+    fn create_branch_single_element(
+        ref self: TContractState, 
+        index: usize, 
+        blockhash: felt252,
+        peaks: Peaks,
+        proof: Proof,
+        mmr_id: usize,
+    );
     fn create_branch_from(ref self: TContractState, mmr_id: usize);
 }
 
@@ -258,7 +265,7 @@ mod HeadersStore {
             mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
         }
 
-        fn create_branch(ref self: ContractState, root: felt252, last_pos: usize) {
+        fn create_branch_from_message(ref self: ContractState, root: felt252, last_pos: usize) {
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
 
@@ -275,16 +282,27 @@ mod HeadersStore {
             }));
         }
 
-        fn create_branch_empy(ref self: ContractState) {
-            let mmr_id = self.latest_mmr_id.read() + 1;
-            let mmr: MMR = Default::default();
+        fn create_branch_single_element(
+            ref self: ContractState,
+            index: usize, 
+            blockhash: felt252,
+            peaks: Peaks,
+            proof: Proof,
+            mmr_id: usize,
+        ) {
+            assert(HeadersStore::verify_mmr_inclusion(@self, index, blockhash, peaks, proof, mmr_id), 'Invalid proof');
+
+            let mut mmr: MMR = Default::default();
+            mmr.append(blockhash, array![].span());
 
             let root = mmr.root;
             let last_pos = mmr.last_pos;
 
+            let mmr_id = self.latest_mmr_id.read() + 1;
             self.mmr.write(mmr_id, mmr);
             self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
+
 
             self.emit(Event::BranchCreated(BranchCreated {
                 mmr_id,
