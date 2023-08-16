@@ -14,9 +14,13 @@ contract L1MessagesSender {
 
     IAggregatorsFactory public immutable aggregatorsFactoryAddr;
 
-    /// @dev starknetSelector(receive_from_l1)
-    uint256 constant SUBMIT_L1_BLOCKHASH_SELECTOR =
-        598342674068027518481179578557554850038206119856216505601406522348670006916;
+    /// @dev L2 "receive_commitment" L1 handler selector
+    uint256 constant RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR =
+        0x3fa70707d0e831418fb142ca8fb7483611b84e89c0c42bf1fc2a7a5c40890ad;
+
+    /// @dev L2 "receive_mmr" L1 handler selector
+    uint256 constant RECEIVE_MMR_L1_HANDLER_SELECTOR =
+        0x36c76e67f1d589956059cbd9e734d42182d1f8a57d5876390bb0fcfe1090bb4;
 
     /// @param starknetCore_ a StarknetCore address to send and consume messages on/from L2
     /// @param l2RecipientAddr_ a L2 recipient address that is the recipient contract on L2.
@@ -36,6 +40,7 @@ contract L1MessagesSender {
     function sendExactParentHashToL2(uint256 blockNumber_) external {
         bytes32 parentHash = blockhash(blockNumber_ - 1);
         require(parentHash != bytes32(0), "ERR_INVALID_BLOCK_NUMBER");
+
         _sendBlockHashToL2(parentHash, blockNumber_, 0);
     }
 
@@ -43,22 +48,6 @@ contract L1MessagesSender {
     function sendLatestParentHashToL2() external {
         bytes32 parentHash = blockhash(block.number - 1);
         _sendBlockHashToL2(parentHash, block.number, 0);
-    }
-
-    /// @notice Send an exact L1 parent hash to L2
-    /// @param blockNumber_ the child block of the requested parent hash
-    /// @param slashingRewardL2Recipient_ L2 address of the reward recipient if slashing occurs
-    function proveFraudulentRelay(
-        uint256 blockNumber_,
-        uint256 slashingRewardL2Recipient_
-    ) external {
-        bytes32 parentHash = blockhash(blockNumber_ - 1);
-        require(parentHash != bytes32(0), "ERR_INVALID_BLOCK_NUMBER");
-        _sendBlockHashToL2(
-            parentHash,
-            blockNumber_,
-            slashingRewardL2Recipient_
-        );
     }
 
     function _sendBlockHashToL2(
@@ -83,13 +72,13 @@ contract L1MessagesSender {
 
         starknetCore.sendMessageToL2(
             l2RecipientAddr,
-            SUBMIT_L1_BLOCKHASH_SELECTOR,
+            RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR,
             message
         );
     }
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
-    function sendMMRTreesToL2(uint256 aggregatorId) external {
+    function sendPoseidonMMRTreeToL2(uint256 aggregatorId) external {
         address existingAggregatorAddr = aggregatorsFactoryAddr
             .getAggregatorById(aggregatorId);
 
@@ -116,7 +105,7 @@ contract L1MessagesSender {
 
         starknetCore.sendMessageToL2(
             l2RecipientAddr,
-            SUBMIT_L1_BLOCKHASH_SELECTOR,
+            RECEIVE_MMR_L1_HANDLER_SELECTOR,
             message
         );
     }
