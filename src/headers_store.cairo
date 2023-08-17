@@ -6,9 +6,10 @@ use cairo_lib::utils::types::bytes::Bytes;
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
     fn get_commitments_inbox(self: @TContractState) -> ContractAddress;
-    fn get_mmr_root(self: @TContractState) -> felt252;
-    fn get_mmr_size(self: @TContractState) -> usize;
+    fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
+    fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
+    fn get_latest_mmr_id(self: @TContractState) -> usize;
 
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
     fn process_received_block(
@@ -16,12 +17,14 @@ trait IHeadersStore<TContractState> {
         block_number: u256, 
         header_rlp: Bytes,
         mmr_peaks: Peaks,
+        mmr_id: usize,
     );
     fn process_chunk(
         ref self: TContractState,
         initial_block: u256, 
         headers_rlp: Span<Bytes>,
         mmr_peaks: Peaks,
+        mmr_id: usize,
     );
 
     fn verify_mmr_inclusion(
@@ -30,7 +33,28 @@ trait IHeadersStore<TContractState> {
         blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
+        mmr_id: usize,
     ) -> bool;
+    fn verify_historical_mmr_inclusion(
+        self: @TContractState,
+        index: usize,
+        blockhash: felt252,
+        peaks: Peaks,
+        proof: Proof,
+        mmr_id: usize,
+        last_pos: usize,
+    ) -> bool;
+
+    fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
+    fn create_branch_single_element(
+        ref self: TContractState, 
+        index: usize, 
+        blockhash: felt252,
+        peaks: Peaks,
+        proof: Proof,
+        mmr_id: usize,
+    );
+    fn create_branch_from(ref self: TContractState, mmr_id: usize);
 }
 
 #[starknet::contract]
@@ -48,20 +72,24 @@ mod HeadersStore {
     use traits::{Into, TryInto};
     use result::ResultTrait;
     use option::OptionTrait;
+    use clone::Clone;
 
     #[storage]
     struct Storage {
         commitments_inbox: ContractAddress,
-        // block_number => blockhash
-        mmr: MMR,
-        received_blocks: LegacyMap::<u256, u256>
+        mmr: LegacyMap::<usize, MMR>,
+        // (id, size) => root
+        mmr_history: LegacyMap::<(usize, usize), felt252>,
+        received_blocks: LegacyMap::<u256, u256>,
+        latest_mmr_id: usize
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
         HashReceived: HashReceived,
-        ProcessedBlock: ProcessedBlock
+        ProcessedBlock: ProcessedBlock,
+        BranchCreated: BranchCreated
     }
 
     #[derive(Drop, starknet::Event)]
@@ -77,10 +105,23 @@ mod HeadersStore {
         blockhash_poseidon: felt252
     }
 
+    #[derive(Drop, starknet::Event)]
+    struct BranchCreated {
+        mmr_id: usize,
+        root: felt252,
+        last_pos: usize
+    }
+
     #[constructor]
     fn constructor(ref self: ContractState, commitments_inbox: ContractAddress) {
         self.commitments_inbox.write(commitments_inbox);
-        self.mmr.write(Default::default());
+
+        let mmr: MMR = Default::default();
+        let root = mmr.root;
+
+        self.mmr.write(0, mmr);
+        self.mmr_history.write((0, 0), root);
+        self.latest_mmr_id.write(0);
     }
 
     #[external(v0)]
@@ -89,16 +130,20 @@ mod HeadersStore {
             self.commitments_inbox.read()
         }
 
-        fn get_mmr_root(self: @ContractState) -> felt252 {
-            self.mmr.read().root
+        fn get_mmr_root(self: @ContractState, mmr_id: usize) -> felt252 {
+            self.mmr.read(mmr_id).root
         }
 
-        fn get_mmr_size(self: @ContractState) -> usize {
-            self.mmr.read().last_pos
+        fn get_mmr_size(self: @ContractState, mmr_id: usize) -> usize {
+            self.mmr.read(mmr_id).last_pos
         }
 
         fn get_received_block(self: @ContractState, block_number: u256) -> u256 {
             self.received_blocks.read(block_number)
+        }
+
+        fn get_latest_mmr_id(self: @ContractState) -> usize {
+            self.latest_mmr_id.read()
         }
 
         fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
@@ -118,6 +163,7 @@ mod HeadersStore {
             block_number: u256, 
             header_rlp: Bytes,
             mmr_peaks: Peaks,
+            mmr_id: usize,
         ) {
             let blockhash = self.received_blocks.read(block_number);
             assert(blockhash != Zeroable::zero(), 'Block not received');
@@ -127,8 +173,10 @@ mod HeadersStore {
 
             let poseidon_hash = InternalFunctions::poseidon_hash_rlp(header_rlp);
 
-            let mut mmr = self.mmr.read();
+            let mut mmr = self.mmr.read(mmr_id);
             mmr.append(poseidon_hash, mmr_peaks);
+
+            self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
             self.emit(Event::ProcessedBlock(ProcessedBlock {
                 block_number,
@@ -142,6 +190,7 @@ mod HeadersStore {
             initial_block: u256, 
             headers_rlp: Span<Bytes>,
             mmr_peaks: Peaks,
+            mmr_id: usize,
         ) {
             let initial_blockhash = self.received_blocks.read(initial_block);
             assert(initial_blockhash != Zeroable::zero(), 'Block not received');
@@ -150,6 +199,7 @@ mod HeadersStore {
             assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
             let mut i: usize = 1;
+            let mut mmr = self.mmr.read(mmr_id);
             loop {
                 if i == headers_rlp.len() {
                     break ();
@@ -173,7 +223,6 @@ mod HeadersStore {
 
                 let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
 
-                let mut mmr = self.mmr.read();
                 mmr.append(poseidon_hash, mmr_peaks);
 
                 self.emit(Event::ProcessedBlock(ProcessedBlock {
@@ -184,6 +233,8 @@ mod HeadersStore {
 
                 i += 1;
             };
+
+            self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
         }
 
         fn verify_mmr_inclusion(
@@ -192,10 +243,90 @@ mod HeadersStore {
             blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
+            mmr_id: usize,
         ) -> bool {
-            let mmr = self.mmr.read();
+            let mmr = self.mmr.read(mmr_id);
             // TODO error handling
             mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+        }
+
+        fn verify_historical_mmr_inclusion(
+            self: @ContractState,
+            index: usize,
+            blockhash: felt252,
+            peaks: Peaks,
+            proof: Proof,
+            mmr_id: usize,
+            last_pos: usize,
+        ) -> bool {
+            // TODO error handling
+            let root = self.mmr_history.read((mmr_id, last_pos));
+            let mmr = MMRTrait::new(root, last_pos);
+            mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+        }
+
+        fn create_branch_from_message(ref self: ContractState, root: felt252, last_pos: usize) {
+            let caller = get_caller_address();
+            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
+
+            let mmr_id = self.latest_mmr_id.read() + 1;
+            let mmr = MMRTrait::new(root, last_pos);
+            self.mmr.write(mmr_id, mmr);
+            self.mmr_history.write((mmr_id, last_pos), root);
+            self.latest_mmr_id.write(mmr_id);
+
+            self.emit(Event::BranchCreated(BranchCreated {
+                mmr_id,
+                root,
+                last_pos
+            }));
+        }
+
+        fn create_branch_single_element(
+            ref self: ContractState,
+            index: usize, 
+            blockhash: felt252,
+            peaks: Peaks,
+            proof: Proof,
+            mmr_id: usize,
+        ) {
+            assert(HeadersStore::verify_mmr_inclusion(@self, index, blockhash, peaks, proof, mmr_id), 'Invalid proof');
+
+            let mut mmr: MMR = Default::default();
+            mmr.append(blockhash, array![].span());
+
+            let root = mmr.root;
+            let last_pos = mmr.last_pos;
+
+            let mmr_id = self.latest_mmr_id.read() + 1;
+            self.mmr.write(mmr_id, mmr);
+            self.mmr_history.write((mmr_id, last_pos), root);
+            self.latest_mmr_id.write(mmr_id);
+
+
+            self.emit(Event::BranchCreated(BranchCreated {
+                mmr_id,
+                root,
+                last_pos
+            }));
+        }
+
+        fn create_branch_from(ref self: ContractState, mmr_id: usize) {
+            let mmr_id = self.latest_mmr_id.read() + 1;
+            let mmr = self.mmr.read(mmr_id);
+
+            let root = mmr.root;
+            let last_pos = mmr.last_pos;
+
+            self.mmr.write(mmr_id, mmr.clone());
+            self.mmr_history.write((mmr_id, last_pos), root);
+            self.latest_mmr_id.write(mmr_id);
+
+            self.emit(Event::BranchCreated(BranchCreated {
+                mmr_id,
+                root,
+                last_pos
+            }));
         }
     }
 
