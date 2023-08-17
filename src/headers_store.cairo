@@ -2,10 +2,12 @@ use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::utils::types::bytes::Bytes;
+use cairo_lib::data_structures::mmr::mmr::MMR;
 
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
     fn get_commitments_inbox(self: @TContractState) -> ContractAddress;
+    fn get_mmr(self: @TContractState, mmr_id: usize) -> MMR;
     fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
     fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
@@ -128,6 +130,10 @@ mod HeadersStore {
     impl HeadersStore of super::IHeadersStore<ContractState> {
         fn get_commitments_inbox(self: @ContractState) -> ContractAddress {
             self.commitments_inbox.read()
+        }
+
+        fn get_mmr(self: @ContractState, mmr_id: usize) -> MMR {
+            self.mmr.read(mmr_id)
         }
 
         fn get_mmr_root(self: @ContractState, mmr_id: usize) -> felt252 {
