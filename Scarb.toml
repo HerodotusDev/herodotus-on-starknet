@@ -9,7 +9,7 @@ allowed-libfuncs-list.name = "experimental"
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest
 [dependencies]
 starknet = "2.1.0"
-cairo_lib = { path = "../cairo_lib" }
+cairo_lib = { git = "https://github.com/HerodotusDev/cairo-lib.git" }
 
 [tool.snforge]
 exit_first = true
