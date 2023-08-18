@@ -29,4 +29,9 @@ WIP -> EVM implementation https://github.com/HerodotusDev/herodotus-evm
 More info:
 https://www.notion.so/herodotus/Herodotus-on-Starknet-Smart-contracts-flow-bb42da2b3f434c84900682ee8a954531
 
+# Dependencies
+
+This repository highly relies on the work implemented in:
+https://github.com/HerodotusDev/cairo-lib
+
 Herodotus Dev - 2023.
