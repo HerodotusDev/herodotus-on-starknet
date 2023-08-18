@@ -17,7 +17,9 @@ trait ICommitmentsInbox<TContractState> {
 mod CommitmentsInbox {
     use starknet::{ContractAddress, get_caller_address};
     use zeroable::Zeroable;
-    use herodotus_eth_starknet::headers_store::{IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher};
+    use herodotus_eth_starknet::core::headers_store::{
+        IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
+    };
 
     #[storage]
     struct Storage {
@@ -59,7 +61,12 @@ mod CommitmentsInbox {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, headers_store: ContractAddress, l1_message_sender: felt252, owner: Option<ContractAddress>) {
+    fn constructor(
+        ref self: ContractState,
+        headers_store: ContractAddress,
+        l1_message_sender: felt252,
+        owner: Option<ContractAddress>
+    ) {
         self.headers_store.write(headers_store);
         self.l1_message_sender.write(l1_message_sender);
 
@@ -88,10 +95,12 @@ mod CommitmentsInbox {
             assert(self.owner.read() == caller, 'Only owner');
             self.owner.write(new_owner);
 
-            self.emit(Event::OwnershipTransferred(OwnershipTransferred {
-                previous_owner: caller,
-                new_owner
-            }));
+            self
+                .emit(
+                    Event::OwnershipTransferred(
+                        OwnershipTransferred { previous_owner: caller, new_owner }
+                    )
+                );
         }
 
         fn renounce_ownership(ref self: ContractState) {
@@ -99,9 +108,7 @@ mod CommitmentsInbox {
             assert(self.owner.read() == caller, 'Only owner');
             self.owner.write(Zeroable::zero());
 
-            self.emit(Event::OwnershipRenounced(OwnershipRenounced {
-                previous_owner: caller
-            }));
+            self.emit(Event::OwnershipRenounced(OwnershipRenounced { previous_owner: caller }));
         }
 
         fn receive_commitment_owner(ref self: ContractState, blockhash: u256, block_number: u256) {
@@ -111,36 +118,29 @@ mod CommitmentsInbox {
             let contract_address = self.headers_store.read();
             IHeadersStoreDispatcher { contract_address }.receive_hash(blockhash, block_number);
 
-            self.emit(Event::CommitmentReceived(CommitmentReceived {
-                blockhash,
-                block_number
-            }));
+            self.emit(Event::CommitmentReceived(CommitmentReceived { blockhash, block_number }));
         }
     }
 
     #[l1_handler]
-    fn receive_commitment(ref self: ContractState, from_address: felt252, blockhash: u256, block_number: u256) {
+    fn receive_commitment(
+        ref self: ContractState, from_address: felt252, blockhash: u256, block_number: u256
+    ) {
         assert(from_address == self.l1_message_sender.read(), 'Invalid sender');
-        
+
         let contract_address = self.headers_store.read();
         IHeadersStoreDispatcher { contract_address }.receive_hash(blockhash, block_number);
 
-        self.emit(Event::CommitmentReceived(CommitmentReceived {
-            blockhash,
-            block_number
-        }));
+        self.emit(Event::CommitmentReceived(CommitmentReceived { blockhash, block_number }));
     }
 
     #[l1_handler]
     fn receive_mmr(ref self: ContractState, from_address: felt252, root: felt252, last_pos: usize) {
         assert(from_address == self.l1_message_sender.read(), 'Invalid sender');
-        
+
         let contract_address = self.headers_store.read();
         IHeadersStoreDispatcher { contract_address }.create_branch_from_message(root, last_pos);
 
-        self.emit(Event::MMRReceived(MMRReceived {
-            root,
-            last_pos
-        }));
+        self.emit(Event::MMRReceived(MMRReceived { root, last_pos }));
     }
 }

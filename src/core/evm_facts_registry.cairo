@@ -15,26 +15,24 @@ enum AccountField {
 trait IEVMFactsRegistry<TContractState> {
     fn get_headers_store(self: @TContractState) -> ContractAddress;
 
-    fn get_account_field(self: @TContractState, account: felt252, block: u256, field: AccountField) -> u256;
+    fn get_account_field(
+        self: @TContractState, account: felt252, block: u256, field: AccountField
+    ) -> u256;
     fn get_slot_value(self: @TContractState, account: felt252, block: u256, slot: u256) -> u256;
 
     fn prove_account(
-        ref self: TContractState, 
-        fields: Span<AccountField>, 
+        ref self: TContractState,
+        fields: Span<AccountField>,
         block_header_rlp: Bytes,
-        account: Bytes, 
-        mpt_proof: Span<Bytes>, 
+        account: Bytes,
+        mpt_proof: Span<Bytes>,
         mmr_index: usize,
         mmr_peaks: Peaks,
-        mmr_proof: Proof, 
+        mmr_proof: Proof,
         mmr_id: usize,
     );
     fn prove_storage(
-        ref self: TContractState, 
-        block: u256, 
-        account: felt252, 
-        slot: Bytes, 
-        mpt_proof: Span<Bytes>
+        ref self: TContractState, block: u256, account: felt252, slot: Bytes, mpt_proof: Span<Bytes>
     );
 }
 
@@ -53,18 +51,18 @@ mod EVMFactsRegistry {
     use option::OptionTrait;
     use traits::{Into, TryInto};
     use array::{ArrayTrait, SpanTrait};
-    use herodotus_eth_starknet::headers_store::{IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher};
+    use herodotus_eth_starknet::core::headers_store::{
+        IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
+    };
 
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
-        
         // (account_address, block_number) => value
         storage_hash: LegacyMap::<(felt252, u256), u256>,
         code_hash: LegacyMap::<(felt252, u256), u256>,
         balance: LegacyMap::<(felt252, u256), u256>,
         nonce: LegacyMap::<(felt252, u256), u256>,
-
         // (account_address, block_number, slot) => value
         slot_values: LegacyMap::<(felt252, u256, u256), u256>
     }
@@ -102,7 +100,9 @@ mod EVMFactsRegistry {
             self.headers_store.read()
         }
 
-        fn get_account_field(self: @ContractState, account: felt252, block: u256, field: AccountField) -> u256 {
+        fn get_account_field(
+            self: @ContractState, account: felt252, block: u256, field: AccountField
+        ) -> u256 {
             match field {
                 AccountField::StorageHash(_) => self.storage_hash.read((account, block)),
                 AccountField::CodeHash(_) => self.code_hash.read((account, block)),
@@ -116,20 +116,22 @@ mod EVMFactsRegistry {
         }
 
         fn prove_account(
-            ref self: ContractState, 
-            fields: Span<AccountField>, 
+            ref self: ContractState,
+            fields: Span<AccountField>,
             block_header_rlp: Bytes,
-            account: Bytes, 
-            mpt_proof: Span<Bytes>, 
+            account: Bytes,
+            mpt_proof: Span<Bytes>,
             mmr_index: usize,
             mmr_peaks: Peaks,
-            mmr_proof: Proof, 
+            mmr_proof: Proof,
             mmr_id: usize,
         ) {
             let blockhash = InternalFunctions::poseidon_hash_rlp(block_header_rlp);
 
             let contract_address = self.headers_store.read();
-            let mmr_inclusion = IHeadersStoreDispatcher { contract_address }.verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id);
+            let mmr_inclusion = IHeadersStoreDispatcher {
+                contract_address
+            }.verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id);
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
             let (decoded_rlp, _) = rlp_decode(block_header_rlp).unwrap();
@@ -166,7 +168,9 @@ mod EVMFactsRegistry {
                         match field {
                             AccountField::StorageHash(_) => {
                                 let storage_hash: u256 = (*l.at(2)).try_into().unwrap();
-                                self.storage_hash.write((account_felt252, block_number), storage_hash);
+                                self
+                                    .storage_hash
+                                    .write((account_felt252, block_number), storage_hash);
                             },
                             AccountField::CodeHash(_) => {
                                 let code_hash: u256 = (*l.at(3)).try_into().unwrap();
@@ -187,17 +191,18 @@ mod EVMFactsRegistry {
                 },
             };
 
-            self.emit(Event::AccountProven(AccountProven {
-                account: account_felt252,
-                block: block_number,
-                fields
-            }));
+            self
+                .emit(
+                    Event::AccountProven(
+                        AccountProven { account: account_felt252, block: block_number, fields }
+                    )
+                );
         }
 
         fn prove_storage(
-            ref self: ContractState, 
-            block: u256, 
-            account: felt252, 
+            ref self: ContractState,
+            block: u256,
+            account: felt252,
             slot: Bytes,
             mpt_proof: Span<Bytes>
         ) {
@@ -214,12 +219,12 @@ mod EVMFactsRegistry {
 
             self.slot_values.write((account, block, slot_u256), value_u256);
 
-            self.emit(Event::StorageProven(StorageProven {
-                account,
-                block,
-                slot: slot_u256,
-                value: value_u256
-            }));
+            self
+                .emit(
+                    Event::StorageProven(
+                        StorageProven { account, block, slot: slot_u256, value: value_u256 }
+                    )
+                );
         }
     }
 
@@ -237,7 +242,7 @@ mod EVMFactsRegistry {
                 rlp_felt_arr.append((*rlp.at(i)).into());
                 i += 1;
             };
-            
+
             PoseidonHasher::hash_many(rlp_felt_arr.span())
         }
     }
