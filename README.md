@@ -14,7 +14,7 @@ This repository contains the following modules:
 This module is responsible for:
 
 - Processing new block headers and growing the MMR.
-- Receiving and handling L1 messages containing blockhashes and Poseidon roots of the MMR which generation has been ShARP proven.
+- Receiving and handling L1 messages containing blockhashes and Poseidon roots of the MMR which generation has been SHARP proven.
 - Verifying state proofs and saving the proven values in the `FactsRegistry`
 
 # Timestamps to block numbers mapper
