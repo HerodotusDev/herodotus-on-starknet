@@ -16,6 +16,24 @@ struct OriginElement {
     header: Bytes
 }
 
+#[derive(Drop, Copy, Serde)]
+struct ProofElement {
+    index: usize,
+    value: u256,
+    peaks: Peaks,
+    proof: Proof,
+    mmr_id: usize,
+    last_pos: usize,
+}
+
+#[derive(Drop, Copy, Serde)]
+struct BinarySearchTree {
+    size: u256,
+    proofs: Span<ProofElement>,
+    closest_low_val: Option<ProofElement>,
+    closest_high_val: Option<ProofElement>
+}
+
 #[starknet::interface]
 trait ITimestampRemappers<TContractState> {
     fn create_mapper(ref self: TContractState, start_block: u256) -> usize;
@@ -26,13 +44,17 @@ trait ITimestampRemappers<TContractState> {
         mapper_peaks: Peaks,
         origin_elements: Span<OriginElement>
     );
+
+    fn mmr_binary_search(
+        self: @TContractState, tree: BinarySearchTree, x: u256, get_closest: Option<bool>
+    ) -> Option<u256>;
 }
 
 #[starknet::contract]
 mod TimestampRemappers {
     use super::{
         ITimestampRemappers, Headers, OriginElement, Proof, Peaks, SpanTrait, Bytes,
-        BytesTryIntoU256
+        BytesTryIntoU256, ProofElement, BinarySearchTree
     };
     use starknet::{ContractAddress};
     use zeroable::Zeroable;
@@ -156,6 +178,134 @@ mod TimestampRemappers {
             let last_block_appended: felt252 = (expected_block - 1).try_into().unwrap();
             mapper.latest_block = last_block_appended;
         }
+
+        fn mmr_binary_search(
+            self: @ContractState, tree: BinarySearchTree, x: u256, get_closest: Option<bool>
+        ) -> Option<u256> {
+            if tree.size == 0 {
+                return Option::None(());
+            }
+            let headers_store_addr = self.headers_store.read();
+
+            let mut low: u256 = 0;
+            let mut high: u256 = tree.size - 1;
+
+            let proofs: Span<ProofElement> = tree.proofs;
+            let mut proof_idx = 0;
+            let result = loop {
+                if low > high {
+                    break Option::None(());
+                }
+
+                let mid: u256 = (low + high) / 2;
+                let proof_element: ProofElement = *proofs.at(proof_idx);
+
+                assert(proof_element.index.into() == mid, 'Unexpected proof index');
+
+                let mid_val: u256 = proof_element.value;
+                let is_valid_proof = IHeadersStoreDispatcher {
+                    contract_address: headers_store_addr
+                }
+                    .verify_historical_mmr_inclusion(
+                        proof_element.index,
+                        mid_val.try_into().unwrap(),
+                        proof_element.peaks,
+                        proof_element.proof,
+                        proof_element.mmr_id,
+                        proof_element.last_pos
+                    );
+                assert(is_valid_proof, 'Invalid proof');
+
+                if mid_val == x {
+                    break Option::Some(mid);
+                }
+                if mid_val < x {
+                    low = mid + 1;
+                } else {
+                    if mid == 0 {
+                        break Option::None(());
+                    }
+                    high = mid - 1;
+                }
+                proof_idx += 1;
+            };
+
+            match result {
+                Option::Some(_) => result,
+                Option::None(_) => {
+                    if get_closest.unwrap() == true {
+                        closest_from_x(tree, low, high, x, headers_store_addr)
+                    } else {
+                        result
+                    }
+                }
+            }
+        }
+    }
+
+    fn closest_from_x(
+        tree: BinarySearchTree, low: u256, high: u256, x: u256, headers_store_addr: ContractAddress
+    ) -> Option<u256> {
+        if low >= tree.size {
+            return Option::Some(high);
+        }
+        if high < 0 {
+            return Option::Some(low);
+        }
+        let tree_closest_low_val = tree.closest_low_val.unwrap();
+        let tree_closest_high_val = tree.closest_high_val.unwrap();
+
+        assert(tree_closest_low_val.index.into() == low, 'Unexpected proof index (low)');
+        assert(tree_closest_high_val.index.into() == high, 'Unexpected proof index (high)');
+
+        let is_valid_low_proof = IHeadersStoreDispatcher {
+            contract_address: headers_store_addr
+        }
+            .verify_historical_mmr_inclusion(
+                tree_closest_low_val.index,
+                tree_closest_low_val.value.try_into().unwrap(),
+                tree_closest_low_val.peaks,
+                tree_closest_low_val.proof,
+                tree_closest_low_val.mmr_id,
+                tree_closest_low_val.last_pos
+            );
+        assert(is_valid_low_proof, 'Invalid proof (low)');
+
+        let is_valid_high_proof = IHeadersStoreDispatcher {
+            contract_address: headers_store_addr
+        }
+            .verify_historical_mmr_inclusion(
+                tree_closest_high_val.index,
+                tree_closest_high_val.value.try_into().unwrap(),
+                tree_closest_high_val.peaks,
+                tree_closest_high_val.proof,
+                tree_closest_high_val.mmr_id,
+                tree_closest_high_val.last_pos
+            );
+        assert(is_valid_high_proof, 'Invalid proof (high)');
+
+        let low_val: u256 = tree_closest_low_val.value;
+        let high_val: u256 = tree_closest_high_val.value;
+
+        let mut a = 0;
+        if low_val > x {
+            a = low_val - x;
+        } else {
+            a = x - low_val;
+        }
+
+        let mut b = 0;
+        if high_val > x {
+            b = high_val - x;
+        } else {
+            b = x - high_val;
+        }
+
+        if a < b {
+            return Option::Some(low);
+        }
+
+        return Option::Some(high);
     }
 
     fn extract_header_block_number(header: @Bytes) -> u256 {
