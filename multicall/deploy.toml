@@ -1,6 +1,6 @@
 [[call]]
 call_type = "deploy"
-class_hash = "0x78ee532ef3995b489d54a105650dc629d90ef6d09b4f05f7843df56c7ce9b8a"
+class_hash = "0x710fb6c249e9c76996f01e170218e31aec7498a8ae618842a0f67b66987c436"
 inputs = ["0x1", "0x2", "0x0", "0x007327d012f432a9f940228ae6b01032ea4742d8bba8599d7a34e1d5c120e983"]
 id = "commitments_inbox"
 unique = false
