@@ -4,7 +4,7 @@ version = "0.1.0"
 
 [[target.starknet-contract]]
 sierra = true
-allowed-libfuncs-list.name = "experimental"
+casm = true
 
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest
 [dependencies]
@@ -14,6 +14,8 @@ cairo_lib = { git = "https://github.com/HerodotusDev/cairo-lib.git" }
 [tool.snforge]
 exit_first = true
 
-[tool.sncast.dev]
+# Default profile
+[tool.sncast]
 account = "dev"
 network = "testnet"
+url = "https://starknet-testnet.public.blastapi.io"

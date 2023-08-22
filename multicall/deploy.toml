@@ -1,0 +1,22 @@
+[[call]]
+call_type = "deploy"
+class_hash = "0x78ee532ef3995b489d54a105650dc629d90ef6d09b4f05f7843df56c7ce9b8a"
+inputs = ["0x1", "0x2", "0x0", "0x007327d012f432a9f940228ae6b01032ea4742d8bba8599d7a34e1d5c120e983"]
+id = "commitments_inbox"
+unique = false
+
+[[call]]
+call_type = "deploy"
+class_hash = "0x4965a6ea3851cde0fd10952802af3300fac851122051c3743644aabe901ee13"
+inputs = ["0x1"]
+id = "headers_store"
+unique = false
+
+[[call]]
+call_type = "deploy"
+class_hash = "0xfa77018c244261ab65551a07c0f6e3fab9592027e4cd456b9d074f2b94a9ae"
+inputs = ["0x1"]
+id = "evm_facts_registry"
+unique = false
+
+
