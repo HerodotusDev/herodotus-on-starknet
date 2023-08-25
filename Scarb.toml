@@ -9,9 +9,10 @@ sierra = true
 casm = true
 
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest
+
 [dependencies]
 starknet = "2.1.0"
-cairo_lib = { git = "https://github.com/HerodotusDev/cairo-lib.git" }
+cairo_lib = { git = "https://github.com/HerodotusDev/cairo-lib.git", branch = "feat/hashing-logic" }
 snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.4.1" }
 
 [tool.snforge]

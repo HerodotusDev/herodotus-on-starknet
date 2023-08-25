@@ -22,12 +22,12 @@ struct ProofElement {
     value: u256,
     peaks: Peaks,
     proof: Proof,
-    mmr_id: usize,
     last_pos: usize,
 }
 
 #[derive(Drop, Copy, Serde)]
 struct BinarySearchTree {
+    mmr_id: usize,
     size: u256,
     proofs: Span<ProofElement>,
     closest_low_val: Option<ProofElement>,
@@ -69,6 +69,8 @@ mod TimestampRemappers {
     use cairo_lib::hashing::keccak::KeccakTrait;
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
+
+    use debug::PrintTrait;
 
     #[derive(Drop, starknet::Store)]
     struct Mapper {
@@ -200,7 +202,10 @@ mod TimestampRemappers {
                 let mid: u256 = (low + high) / 2;
                 let proof_element: ProofElement = *proofs.at(proof_idx);
 
-                assert(proof_element.index.into() == mid, 'Unexpected proof index');
+                assert(
+                    proof_element.index.into() == leaf_index_to_mmr_index(mid + 1),
+                    'Unexpected proof index'
+                );
 
                 let mid_val: u256 = proof_element.value;
                 let is_valid_proof = IHeadersStoreDispatcher {
@@ -211,7 +216,7 @@ mod TimestampRemappers {
                         mid_val.try_into().unwrap(),
                         proof_element.peaks,
                         proof_element.proof,
-                        proof_element.mmr_id,
+                        tree.mmr_id,
                         proof_element.last_pos
                     );
                 assert(is_valid_proof, 'Invalid proof');
@@ -266,7 +271,7 @@ mod TimestampRemappers {
                 tree_closest_low_val.value.try_into().unwrap(),
                 tree_closest_low_val.peaks,
                 tree_closest_low_val.proof,
-                tree_closest_low_val.mmr_id,
+                tree.mmr_id,
                 tree_closest_low_val.last_pos
             );
         assert(is_valid_low_proof, 'Invalid proof (low)');
@@ -279,7 +284,7 @@ mod TimestampRemappers {
                 tree_closest_high_val.value.try_into().unwrap(),
                 tree_closest_high_val.peaks,
                 tree_closest_high_val.proof,
-                tree_closest_high_val.mmr_id,
+                tree.mmr_id,
                 tree_closest_high_val.last_pos
             );
         assert(is_valid_high_proof, 'Invalid proof (high)');
@@ -334,5 +339,23 @@ mod TimestampRemappers {
         };
 
         timestamp
+    }
+
+    // TODO: port helper functions below to cairo-lib
+
+    fn count_ones(n: u256) -> u256 {
+        let mut n = n;
+        let mut count = 0;
+        loop {
+            if n == 0 {
+                break count;
+            }
+            n = n & (n - 1);
+            count += 1;
+        }
+    }
+
+    fn leaf_index_to_mmr_index(n: u256) -> u256 {
+        2 * n - 1 - count_ones(n - 1)
     }
 }
