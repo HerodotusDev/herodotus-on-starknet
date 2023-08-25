@@ -7,23 +7,30 @@ use cairo_lib::data_structures::mmr::mmr::MMR;
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
     fn get_commitments_inbox(self: @TContractState) -> ContractAddress;
+
     fn get_mmr(self: @TContractState, mmr_id: usize) -> MMR;
+
     fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
+
     fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
+
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
+
     fn get_latest_mmr_id(self: @TContractState) -> usize;
 
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
+
     fn process_received_block(
         ref self: TContractState,
-        block_number: u256, 
+        block_number: u256,
         header_rlp: Bytes,
         mmr_peaks: Peaks,
         mmr_id: usize,
     );
+
     fn process_chunk(
         ref self: TContractState,
-        initial_block: u256, 
+        initial_block: u256,
         headers_rlp: Span<Bytes>,
         mmr_peaks: Peaks,
         mmr_id: usize,
@@ -37,6 +44,7 @@ trait IHeadersStore<TContractState> {
         proof: Proof,
         mmr_id: usize,
     ) -> bool;
+
     fn verify_historical_mmr_inclusion(
         self: @TContractState,
         index: usize,
@@ -48,15 +56,20 @@ trait IHeadersStore<TContractState> {
     ) -> bool;
 
     fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
+
     fn create_branch_single_element(
-        ref self: TContractState, 
-        index: usize, 
+        ref self: TContractState,
+        index: usize,
         blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
         mmr_id: usize,
     );
+
     fn create_branch_from(ref self: TContractState, mmr_id: usize);
+
+    // TODO: remove
+    fn force_create_mmr(ref self: TContractState, mmr_id: usize, root: felt252, last_pos: usize);
 }
 
 #[starknet::contract]
@@ -158,15 +171,12 @@ mod HeadersStore {
 
             self.received_blocks.write(block_number, blockhash);
 
-            self.emit(Event::HashReceived(HashReceived {
-                block_number,
-                blockhash
-            }));
+            self.emit(Event::HashReceived(HashReceived { block_number, blockhash }));
         }
 
         fn process_received_block(
             ref self: ContractState,
-            block_number: u256, 
+            block_number: u256,
             header_rlp: Bytes,
             mmr_peaks: Peaks,
             mmr_id: usize,
@@ -184,16 +194,19 @@ mod HeadersStore {
 
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
-            self.emit(Event::ProcessedBlock(ProcessedBlock {
-                block_number,
-                blockhash,
-                blockhash_poseidon: poseidon_hash
-            }));
+            self
+                .emit(
+                    Event::ProcessedBlock(
+                        ProcessedBlock {
+                            block_number, blockhash, blockhash_poseidon: poseidon_hash
+                        }
+                    )
+                );
         }
 
         fn process_chunk(
             ref self: ContractState,
-            initial_block: u256, 
+            initial_block: u256,
             headers_rlp: Span<Bytes>,
             mmr_peaks: Peaks,
             mmr_id: usize,
@@ -231,11 +244,16 @@ mod HeadersStore {
 
                 mmr.append(poseidon_hash, mmr_peaks);
 
-                self.emit(Event::ProcessedBlock(ProcessedBlock {
-                    block_number: initial_block - i.into(),
-                    blockhash: current_hash,
-                    blockhash_poseidon: poseidon_hash
-                }));
+                self
+                    .emit(
+                        Event::ProcessedBlock(
+                            ProcessedBlock {
+                                block_number: initial_block - i.into(),
+                                blockhash: current_hash,
+                                blockhash_poseidon: poseidon_hash
+                            }
+                        )
+                    );
 
                 i += 1;
             };
@@ -281,22 +299,21 @@ mod HeadersStore {
             self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
-            self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id,
-                root,
-                last_pos
-            }));
+            self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
         }
 
         fn create_branch_single_element(
             ref self: ContractState,
-            index: usize, 
+            index: usize,
             blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
             mmr_id: usize,
         ) {
-            assert(HeadersStore::verify_mmr_inclusion(@self, index, blockhash, peaks, proof, mmr_id), 'Invalid proof');
+            assert(
+                HeadersStore::verify_mmr_inclusion(@self, index, blockhash, peaks, proof, mmr_id),
+                'Invalid proof'
+            );
 
             let mut mmr: MMR = Default::default();
             mmr.append(blockhash, array![].span());
@@ -309,16 +326,10 @@ mod HeadersStore {
             self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
-
-            self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id,
-                root,
-                last_pos
-            }));
+            self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
         }
 
         fn create_branch_from(ref self: ContractState, mmr_id: usize) {
-            let mmr_id = self.latest_mmr_id.read() + 1;
             let mmr = self.mmr.read(mmr_id);
 
             let root = mmr.root;
@@ -328,11 +339,19 @@ mod HeadersStore {
             self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
-            self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id,
-                root,
-                last_pos
-            }));
+            self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
+        }
+
+        // TODO: testing purposes only (remove before production)
+        fn force_create_mmr(
+            ref self: ContractState, mmr_id: usize, root: felt252, last_pos: usize
+        ) {
+            let caller = get_caller_address();
+            assert(caller == Zeroable::zero(), 'Only AddressZero');
+
+            let mmr = MMRTrait::new(root, last_pos);
+            self.mmr.write(mmr_id, mmr);
+            self.mmr_history.write((mmr_id, last_pos), root);
         }
     }
 
@@ -350,7 +369,7 @@ mod HeadersStore {
                 rlp_felt_arr.append((*rlp.at(i)).into());
                 i += 1;
             };
-            
+
             PoseidonHasher::hash_many(rlp_felt_arr.span())
         }
     }
