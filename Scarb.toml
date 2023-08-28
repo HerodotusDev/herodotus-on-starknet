@@ -1,6 +1,7 @@
 [package]
 name = "herodotus_eth_starknet"
 version = "0.1.0"
+authors = ["Herodotus Dev"]
 
 [[target.starknet-contract]]
 sierra = true
@@ -16,6 +17,6 @@ exit_first = true
 
 # Default profile
 [tool.sncast]
-account = "dev"
+account = "herodotus"
 network = "testnet"
 url = "https://starknet-testnet.public.blastapi.io"
