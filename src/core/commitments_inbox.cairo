@@ -9,6 +9,8 @@ trait ICommitmentsInbox<TContractState> {
 
     // Commitments inbox and headers store need each other's address, egg and chicken problem
     fn set_headers_store(ref self: TContractState, headers_store: ContractAddress);
+    // Same for L1 message sender
+    fn set_l1_message_sender(ref self: TContractState, l1_message_sender: felt252);
 
     fn transfer_ownership(ref self: TContractState, new_owner: ContractAddress);
     fn renounce_ownership(ref self: TContractState);
@@ -97,6 +99,12 @@ mod CommitmentsInbox {
             let caller = get_caller_address();
             assert(self.owner.read() == caller, 'Only owner');
             self.headers_store.write(headers_store);
+        }
+
+        fn set_l1_message_sender(ref self: ContractState, l1_message_sender: felt252) {
+            let caller = get_caller_address();
+            assert(self.owner.read() == caller, 'Only owner');
+            self.l1_message_sender.write(l1_message_sender);
         }
 
         fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
