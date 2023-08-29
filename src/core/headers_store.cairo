@@ -91,6 +91,7 @@ mod HeadersStore {
     enum Event {
         HashReceived: HashReceived,
         ProcessedBlock: ProcessedBlock,
+        ProcessedChunk: ProcessedChunk,
         BranchCreated: BranchCreated
     }
 
@@ -105,6 +106,14 @@ mod HeadersStore {
         block_number: u256,
         blockhash: u256,
         blockhash_poseidon: felt252
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct ProcessedChunk {
+        block_start: u256,
+        block_end: u256,
+        new_root: felt252,
+        new_size: usize
     }
 
     #[derive(Drop, starknet::Event)]
@@ -232,16 +241,17 @@ mod HeadersStore {
 
                 mmr.append(poseidon_hash, mmr_peaks);
 
-                self.emit(Event::ProcessedBlock(ProcessedBlock {
-                    block_number: initial_block - i.into(),
-                    blockhash: current_hash,
-                    blockhash_poseidon: poseidon_hash
-                }));
-
                 i += 1;
             };
 
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
+
+            self.emit(Event::ProcessedChunk(ProcessedChunk {
+                block_start: initial_block,
+                block_end: initial_block - headers_rlp.len().into() + 1,
+                new_root: mmr.root,
+                new_size: mmr.last_pos
+            }));
         }
 
         fn verify_mmr_inclusion(
