@@ -58,6 +58,7 @@ mod EVMFactsRegistry {
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
+        // Update to EthAddress when supported
         // (account_address, block_number) => value
         storage_hash: LegacyMap::<(felt252, u256), u256>,
         code_hash: LegacyMap::<(felt252, u256), u256>,

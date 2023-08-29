@@ -200,6 +200,7 @@ mod HeadersStore {
         ) {
             let initial_blockhash = self.received_blocks.read(initial_block);
             assert(initial_blockhash != Zeroable::zero(), 'Block not received');
+            // TODO initial block can also be present in the MMR
 
             let mut rlp_hash = KeccakTrait::keccak_cairo(*headers_rlp.at(0));
             assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
@@ -304,32 +305,32 @@ mod HeadersStore {
             let root = mmr.root;
             let last_pos = mmr.last_pos;
 
-            let mmr_id = self.latest_mmr_id.read() + 1;
-            self.mmr.write(mmr_id, mmr);
-            self.mmr_history.write((mmr_id, last_pos), root);
-            self.latest_mmr_id.write(mmr_id);
+            let latest_mmr_id = self.latest_mmr_id.read() + 1;
+            self.mmr.write(latest_mmr_id, mmr);
+            self.mmr_history.write((latest_mmr_id, last_pos), root);
+            self.latest_mmr_id.write(latest_mmr_id);
 
 
             self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id,
+                mmr_id: latest_mmr_id,
                 root,
                 last_pos
             }));
         }
 
         fn create_branch_from(ref self: ContractState, mmr_id: usize) {
-            let mmr_id = self.latest_mmr_id.read() + 1;
+            let latest_mmr_id = self.latest_mmr_id.read() + 1;
             let mmr = self.mmr.read(mmr_id);
 
             let root = mmr.root;
             let last_pos = mmr.last_pos;
 
-            self.mmr.write(mmr_id, mmr.clone());
-            self.mmr_history.write((mmr_id, last_pos), root);
-            self.latest_mmr_id.write(mmr_id);
+            self.mmr.write(latest_mmr_id, mmr.clone());
+            self.mmr_history.write((latest_mmr_id, last_pos), root);
+            self.latest_mmr_id.write(latest_mmr_id);
 
             self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id,
+                mmr_id: latest_mmr_id,
                 root,
                 last_pos
             }));
