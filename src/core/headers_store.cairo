@@ -22,13 +22,13 @@ trait IHeadersStore<TContractState> {
         mmr_peaks: Peaks,
         mmr_id: usize,
     );
-    //fn process_chunk(
-        //ref self: TContractState,
-        //initial_block: u256, 
-        //headers_rlp: Span<Words64>,
-        //mmr_peaks: Peaks,
-        //mmr_id: usize,
-    //);
+    fn process_batch(
+        ref self: TContractState,
+        initial_block: u256, 
+        headers_rlp: Span<Words64>,
+        mmr_peaks: Peaks,
+        mmr_id: usize,
+    );
 
     fn verify_mmr_inclusion(
         self: @TContractState,
@@ -66,7 +66,7 @@ mod HeadersStore {
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::data_structures::mmr::proof::Proof;
-    use cairo_lib::utils::types::words64::Words64;
+    use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
     use cairo_lib::hashing::keccak::KeccakTrait;
     use cairo_lib::hashing::poseidon::PoseidonHasher;
     use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
@@ -76,6 +76,7 @@ mod HeadersStore {
     use result::ResultTrait;
     use option::OptionTrait;
     use clone::Clone;
+    use debug::PrintTrait;
 
     const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
@@ -94,7 +95,7 @@ mod HeadersStore {
     enum Event {
         HashReceived: HashReceived,
         ProcessedBlock: ProcessedBlock,
-        ProcessedChunk: ProcessedChunk,
+        ProcessedBatch: ProcessedBatch,
         BranchCreated: BranchCreated
     }
 
@@ -112,7 +113,7 @@ mod HeadersStore {
     }
 
     #[derive(Drop, starknet::Event)]
-    struct ProcessedChunk {
+    struct ProcessedBatch {
         block_start: u256,
         block_end: u256,
         new_root: felt252,
@@ -208,60 +209,64 @@ mod HeadersStore {
             }));
         }
 
-        //fn process_chunk(
-            //ref self: ContractState,
-            //initial_block: u256, 
-            //headers_rlp: Span<Words64>,
-            //mmr_peaks: Peaks,
-            //mmr_id: usize,
-        //) {
-            //let initial_blockhash = self.received_blocks.read(initial_block);
-            //assert(initial_blockhash != Zeroable::zero(), 'Block not received');
-            //// TODO initial block can also be present in the MMR
+        fn process_batch(
+            ref self: ContractState,
+            initial_block: u256, 
+            headers_rlp: Span<Words64>,
+            mmr_peaks: Peaks,
+            mmr_id: usize,
+        ) {
+            let initial_blockhash = self.received_blocks.read(initial_block);
+            assert(initial_blockhash != Zeroable::zero(), 'Block not received');
+            // TODO initial block can also be present in the MMR, if present, don't append
 
-            //let mut rlp_hash = KeccakTrait::keccak_cairo_word64(*headers_rlp.at(0));
-            //assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
+            let rlp_hash = KeccakTrait::keccak_cairo_word64(*headers_rlp.at(0));
+            assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
-            //let mut i: usize = 1;
-            //let mut mmr = self.mmr.read(mmr_id);
-            //loop {
-                //if i == headers_rlp.len() {
-                    //break ();
-                //}
+            let poseidon_hash = InternalFunctions::poseidon_hash_rlp(*headers_rlp.at(0));
 
-                //let child_rlp = *headers_rlp.at(i - 1);
-                //// TODO error handling
-                //let (decoded_rlp, _) = rlp_decode_word64(child_rlp).unwrap();
-                //let parent_hash: u256 = match decoded_rlp {
-                    //RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-                    //RLPItemWord64::List(l) => {
-                        //// Parent hash is the first element in the list
-                        //// TODO error handling
-                        ////(*l.at(0)).try_into().unwrap()
-                        //*l.at(0)
-                    //},
-                //};
+            let mut mmr = self.mmr.read(mmr_id);
+            mmr.append(poseidon_hash, mmr_peaks).unwrap();
 
-                //let current_rlp = *headers_rlp.at(i);
-                //let current_hash = KeccakTrait::keccak_cairo(current_rlp);
-                //assert(current_hash == parent_hash, 'Invalid header rlp');
+            let mut i: usize = 1;
+            loop {
+                if i == headers_rlp.len() {
+                    break ();
+                }
 
-                //let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
+                let child_rlp = *headers_rlp.at(i - 1);
+                // TODO error handling
+                let (decoded_rlp, _) = rlp_decode_word64(child_rlp).unwrap();
+                let parent_hash: u256 = match decoded_rlp {
+                    RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                    RLPItemWord64::List(l) => {
+                        let words = *l.at(0);
+                        assert(words.len() == 4, 'Invalid parent_hash rlp');
+                        words.try_into().unwrap()
+                    },
+                };
 
-                //mmr.append(poseidon_hash, mmr_peaks);
+                let current_rlp = *headers_rlp.at(i);
+                let current_hash = KeccakTrait::keccak_cairo_word64(current_rlp);
+                assert(current_hash == parent_hash, 'Invalid header rlp');
 
-                //i += 1;
-            //};
+                let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
 
-            //self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
+                mmr.append(poseidon_hash, mmr_peaks).unwrap();
 
-            //self.emit(Event::ProcessedChunk(ProcessedChunk {
-                //block_start: initial_block,
-                //block_end: initial_block - headers_rlp.len().into() + 1,
-                //new_root: mmr.root,
-                //new_size: mmr.last_pos
-            //}));
-        //}
+                i += 1;
+            };
+
+            self.mmr.write(mmr_id, mmr.clone());
+            self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
+
+            self.emit(Event::ProcessedBatch(ProcessedBatch {
+                block_start: initial_block,
+                block_end: initial_block - headers_rlp.len().into() + 1,
+                new_root: mmr.root,
+                new_size: mmr.last_pos
+            }));
+        }
 
         fn verify_mmr_inclusion(
             self: @ContractState,
