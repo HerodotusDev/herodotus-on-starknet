@@ -1,7 +1,7 @@
 use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::data_structures::mmr::proof::Proof;
-use cairo_lib::utils::types::bytes::Bytes;
+use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::data_structures::mmr::mmr::MMR;
 
 #[starknet::interface]
@@ -17,17 +17,17 @@ trait IHeadersStore<TContractState> {
     fn process_received_block(
         ref self: TContractState,
         block_number: u256, 
-        header_rlp: Bytes,
+        header_rlp: Words64,
         mmr_peaks: Peaks,
         mmr_id: usize,
     );
-    fn process_chunk(
-        ref self: TContractState,
-        initial_block: u256, 
-        headers_rlp: Span<Bytes>,
-        mmr_peaks: Peaks,
-        mmr_id: usize,
-    );
+    //fn process_chunk(
+        //ref self: TContractState,
+        //initial_block: u256, 
+        //headers_rlp: Span<Words64>,
+        //mmr_peaks: Peaks,
+        //mmr_id: usize,
+    //);
 
     fn verify_mmr_inclusion(
         self: @TContractState,
@@ -65,10 +65,10 @@ mod HeadersStore {
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::data_structures::mmr::proof::Proof;
-    use cairo_lib::utils::types::bytes::{Bytes, BytesTryIntoU256};
+    use cairo_lib::utils::types::words64::Words64;
     use cairo_lib::hashing::keccak::KeccakTrait;
     use cairo_lib::hashing::poseidon::PoseidonHasher;
-    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
+    use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
     use zeroable::Zeroable;
     use array::{ArrayTrait, SpanTrait};
     use traits::{Into, TryInto};
@@ -178,14 +178,14 @@ mod HeadersStore {
         fn process_received_block(
             ref self: ContractState,
             block_number: u256, 
-            header_rlp: Bytes,
+            header_rlp: Words64,
             mmr_peaks: Peaks,
             mmr_id: usize,
         ) {
             let blockhash = self.received_blocks.read(block_number);
             assert(blockhash != Zeroable::zero(), 'Block not received');
 
-            let rlp_hash = KeccakTrait::keccak_cairo(header_rlp);
+            let rlp_hash = KeccakTrait::keccak_cairo_word64(header_rlp);
             assert(rlp_hash == blockhash, 'Invalid header rlp');
 
             let poseidon_hash = InternalFunctions::poseidon_hash_rlp(header_rlp);
@@ -202,59 +202,60 @@ mod HeadersStore {
             }));
         }
 
-        fn process_chunk(
-            ref self: ContractState,
-            initial_block: u256, 
-            headers_rlp: Span<Bytes>,
-            mmr_peaks: Peaks,
-            mmr_id: usize,
-        ) {
-            let initial_blockhash = self.received_blocks.read(initial_block);
-            assert(initial_blockhash != Zeroable::zero(), 'Block not received');
-            // TODO initial block can also be present in the MMR
+        //fn process_chunk(
+            //ref self: ContractState,
+            //initial_block: u256, 
+            //headers_rlp: Span<Words64>,
+            //mmr_peaks: Peaks,
+            //mmr_id: usize,
+        //) {
+            //let initial_blockhash = self.received_blocks.read(initial_block);
+            //assert(initial_blockhash != Zeroable::zero(), 'Block not received');
+            //// TODO initial block can also be present in the MMR
 
-            let mut rlp_hash = KeccakTrait::keccak_cairo(*headers_rlp.at(0));
-            assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
+            //let mut rlp_hash = KeccakTrait::keccak_cairo_word64(*headers_rlp.at(0));
+            //assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
-            let mut i: usize = 1;
-            let mut mmr = self.mmr.read(mmr_id);
-            loop {
-                if i == headers_rlp.len() {
-                    break ();
-                }
+            //let mut i: usize = 1;
+            //let mut mmr = self.mmr.read(mmr_id);
+            //loop {
+                //if i == headers_rlp.len() {
+                    //break ();
+                //}
 
-                let child_rlp = *headers_rlp.at(i - 1);
-                // TODO error handling
-                let (decoded_rlp, _) = rlp_decode(child_rlp).unwrap();
-                let parent_hash: u256 = match decoded_rlp {
-                    RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-                    RLPItem::List(l) => {
-                        // Parent hash is the first element in the list
-                        // TODO error handling
-                        (*l.at(0)).try_into().unwrap()
-                    },
-                };
+                //let child_rlp = *headers_rlp.at(i - 1);
+                //// TODO error handling
+                //let (decoded_rlp, _) = rlp_decode_word64(child_rlp).unwrap();
+                //let parent_hash: u256 = match decoded_rlp {
+                    //RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                    //RLPItemWord64::List(l) => {
+                        //// Parent hash is the first element in the list
+                        //// TODO error handling
+                        ////(*l.at(0)).try_into().unwrap()
+                        //*l.at(0)
+                    //},
+                //};
 
-                let current_rlp = *headers_rlp.at(i);
-                let current_hash = KeccakTrait::keccak_cairo(current_rlp);
-                assert(current_hash == parent_hash, 'Invalid header rlp');
+                //let current_rlp = *headers_rlp.at(i);
+                //let current_hash = KeccakTrait::keccak_cairo(current_rlp);
+                //assert(current_hash == parent_hash, 'Invalid header rlp');
 
-                let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
+                //let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
 
-                mmr.append(poseidon_hash, mmr_peaks);
+                //mmr.append(poseidon_hash, mmr_peaks);
 
-                i += 1;
-            };
+                //i += 1;
+            //};
 
-            self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
+            //self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
-            self.emit(Event::ProcessedChunk(ProcessedChunk {
-                block_start: initial_block,
-                block_end: initial_block - headers_rlp.len().into() + 1,
-                new_root: mmr.root,
-                new_size: mmr.last_pos
-            }));
-        }
+            //self.emit(Event::ProcessedChunk(ProcessedChunk {
+                //block_start: initial_block,
+                //block_end: initial_block - headers_rlp.len().into() + 1,
+                //new_root: mmr.root,
+                //new_size: mmr.last_pos
+            //}));
+        //}
 
         fn verify_mmr_inclusion(
             self: @ContractState,
@@ -351,7 +352,7 @@ mod HeadersStore {
 
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
-        fn poseidon_hash_rlp(rlp: Bytes) -> felt252 {
+        fn poseidon_hash_rlp(rlp: Words64) -> felt252 {
             // TODO refactor hashing logic
             let mut rlp_felt_arr: Array<felt252> = ArrayTrait::new();
             let mut i: usize = 0;
