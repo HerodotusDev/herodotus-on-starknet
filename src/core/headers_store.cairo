@@ -108,8 +108,9 @@ mod HeadersStore {
     #[derive(Drop, starknet::Event)]
     struct ProcessedBlock {
         block_number: u256,
-        blockhash: u256,
-        blockhash_poseidon: felt252
+        new_root: felt252,
+        new_size: usize,
+        mmr_id: usize
     }
 
     #[derive(Drop, starknet::Event)]
@@ -117,7 +118,8 @@ mod HeadersStore {
         block_start: u256,
         block_end: u256,
         new_root: felt252,
-        new_size: usize
+        new_size: usize,
+        mmr_id: usize
     }
 
     #[derive(Drop, starknet::Event)]
@@ -204,8 +206,9 @@ mod HeadersStore {
 
             self.emit(Event::ProcessedBlock(ProcessedBlock {
                 block_number,
-                blockhash,
-                blockhash_poseidon: poseidon_hash
+                new_root: mmr.root,
+                new_size: mmr.last_pos,
+                mmr_id
             }));
         }
 
@@ -265,7 +268,8 @@ mod HeadersStore {
                 block_start: initial_block,
                 block_end: initial_block - headers_rlp.len().into() + 1,
                 new_root: mmr.root,
-                new_size: mmr.last_pos
+                new_size: mmr.last_pos,
+                mmr_id
             }));
         }
 
