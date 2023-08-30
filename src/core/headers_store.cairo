@@ -226,7 +226,7 @@ mod HeadersStore {
             let poseidon_hash = InternalFunctions::poseidon_hash_rlp(*headers_rlp.at(0));
 
             let mut mmr = self.mmr.read(mmr_id);
-            mmr.append(poseidon_hash, mmr_peaks).unwrap();
+            let (_, peaks) = mmr.append(poseidon_hash, mmr_peaks).unwrap();
 
             let mut i: usize = 1;
             loop {
@@ -242,6 +242,7 @@ mod HeadersStore {
                     RLPItemWord64::List(l) => {
                         let words = *l.at(0);
                         assert(words.len() == 4, 'Invalid parent_hash rlp');
+                        // Convert 4 le u64 words to le u256
                         words.try_into().unwrap()
                     },
                 };
@@ -252,7 +253,7 @@ mod HeadersStore {
 
                 let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
 
-                mmr.append(poseidon_hash, mmr_peaks).unwrap();
+                let (_, peaks) = mmr.append(poseidon_hash, peaks).unwrap();
 
                 i += 1;
             };

@@ -9,6 +9,7 @@ use traits::TryInto;
 use starknet::ContractAddress;
 use array::{ArrayTrait, SpanTrait};
 use cairo_lib::utils::types::words64::Words64;
+use debug::PrintTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const MMR_INITIAL_ELEMENT: felt252 = 0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
@@ -109,6 +110,13 @@ fn test_process_batch() {
     let mmr_id = 0;
     dispatcher.process_batch(initial_block_number, headers_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id);
 
+    let mmr = dispatcher.get_mmr(mmr_id);
+    let expected_root = 0x210fe3c945426fcca6b555a37a8e34a0929ff2cca7a2029f854873ae2d4c77d;
+    assert(mmr.last_pos == 4, 'Wrong last_pos');
+    assert(mmr.root == expected_root, 'Wrong root');
+
+    let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
+    assert(historical_root == expected_root, 'Wrong historical root');
 }
 
 fn helper_get_headers_rlp() -> Span<Words64> {
