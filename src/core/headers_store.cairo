@@ -311,7 +311,7 @@ mod HeadersStore {
         ) {
             assert(HeadersStore::verify_mmr_inclusion(@self, index, blockhash, peaks, proof, mmr_id), 'Invalid proof');
 
-            let mut mmr: MMR = MMRTrait::new(MMR_INITIAL_ROOT, 1);
+            let mut mmr: MMR = Default::default();
             mmr.append(blockhash, array![].span());
 
             let root = mmr.root;
