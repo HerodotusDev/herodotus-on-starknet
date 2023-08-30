@@ -8,21 +8,41 @@ trait ITurboAuctioningSystem<TContractState> {
         ref self: TContractState, amount: u256, recipient: starknet::ContractAddress
     );
     fn withdraw(ref self: TContractState, withdrawal_request_id: u256);
-    fn settle_bids(ref self: TContractState, bids: Array<TurboAuctioningSystem::SlotAssignmentBid>);
+    fn settle_bids(
+        ref self: TContractState,
+        bidder_address: starknet::ContractAddress,
+        bids: Array<TurboAuctioningSystem::SlotAssignmentBid>
+    );
+    fn upgrade(ref self: TContractState, impl_hash: starknet::class_hash::ClassHash);
+}
+
+#[starknet::interface]
+trait IAccount<TContractState> {
+    fn get_public_key(self: @TContractState) -> felt252;
 }
 
 
 #[starknet::contract]
 mod TurboAuctioningSystem {
-    use traits::Into;
+    use core::option::OptionTrait;
+    use core::starknet::SyscallResultTrait;
+    use traits::{Into, TryInto};
     use array::ArrayTrait;
-    use keccak::{keccak_u256s_be_inputs};
+    use zeroable::Zeroable;
+    use keccak::{keccak_u256s_le_inputs};
     use herodotus_eth_starknet::turbo::proving_slot_assignment::turbo_auctioning_system::ITurboAuctioningSystem;
-    use starknet::secp256_trait::recover_public_key;
-    use starknet::{ContractAddress, SyscallResult, get_caller_address, get_contract_address};
+    use ecdsa::{recover_public_key};
+
+
+    use starknet::{
+        ContractAddress, SyscallResult, ClassHash, get_caller_address, get_contract_address
+    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use openzeppelin::access::accesscontrol::AccessControl;
     use openzeppelin::access::accesscontrol::AccessControl::AccessControlImpl;
+    use openzeppelin::account::interface::{
+        AccountABI, AccountABIDispatcher, AccountABIDispatcherTrait
+    };
 
 
     #[storage]
@@ -52,13 +72,21 @@ mod TurboAuctioningSystem {
         slotId: u256,
         amount: u256,
         assignee: ContractAddress,
-        signature: usize
+        signature: Signature
+    }
+
+    #[derive(Copy, Drop, Serde)]
+    struct Signature {
+        r: felt252,
+        s: felt252,
+        y_parity: bool
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
         SlotAssigned: SlotAssigned,
+        Upgraded: Upgraded
     }
 
     #[derive(Drop, starknet::Event)]
@@ -66,6 +94,11 @@ mod TurboAuctioningSystem {
         slotId: u256,
         assignee: ContractAddress,
         winningBidAmount: u256
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct Upgraded {
+        implementation: ClassHash
     }
 
     // Q: what about doing only-admin? there are no other roles?
@@ -121,7 +154,6 @@ mod TurboAuctioningSystem {
 
         fn deposit_to_state_channel(ref self: ContractState, amount: u256) {
             let caller = get_caller_address();
-
             let erc20 = IERC20Dispatcher { contract_address: self.bidding_token.read() };
             erc20.transfer_from(caller, get_contract_address(), amount);
 
@@ -161,7 +193,9 @@ mod TurboAuctioningSystem {
                 );
         }
 
-        fn settle_bids(ref self: ContractState, bids: Array<SlotAssignmentBid>) {
+        fn settle_bids(
+            ref self: ContractState, bidder_address: ContractAddress, bids: Array<SlotAssignmentBid>
+        ) {
             let unsafe_state = AccessControl::unsafe_new_contract_state();
             assert(
                 AccessControlImpl::has_role(
@@ -176,49 +210,84 @@ mod TurboAuctioningSystem {
             let auctioned_slot_id = bids.at(0).slotId;
             let winning_bid_amount = bids.at(0).amount;
 
+            let temp_bids = bids.clone();
             let mut i = 0;
             loop {
-                if (i >= bids_length) {
+                if (i >= temp_bids.len()) {
                     break;
                 }
-                let bid = bids.at(i);
-                // Q: why pointers?
+                let bid = temp_bids.at(i);
                 assert(*bid.slotId == *auctioned_slot_id, 'ERR_BID_FOR_DIFFERENT_SLOTS');
                 assert(*bid.amount <= *winning_bid_amount, 'ERR_BIDS_NOT_ORDERED_DESC');
             };
 
-            // bytes32 messageHash = keccak256(abi.encodePacked(auctionedSlotId, winningBidAmount, bids[0].assignee));
-            // address bidder = ECDSA.recover(messageHash, bids[0].signature)
+            let mut serialized_msg = ArrayTrait::new();
+            (*auctioned_slot_id, *winning_bid_amount, *bids.at(0).assignee)
+                .serialize(ref serialized_msg);
 
-            let mut output_array = ArrayTrait::new();
-            (*auctioned_slot_id, *winning_bid_amount, *bids.at(0).assignee).serialize(ref output_array);
+            let mut formatted_serialized_msg = ArrayTrait::<u256>::new();
+            let mut i = 0;
+            loop {
+                if (i >= serialized_msg.len()) {
+                    break;
+                };
+                let output_formatted: u256 = (*serialized_msg.at(i)).into();
+                formatted_serialized_msg.append(output_formatted);
+            };
 
-            // Q: big/little endian matters? sn_keccak?
-            let hashed = keccak_u256s_be_inputs(output_array);
-            
-            // TODO u32 to signature conversion
-            let bidder_public_key = recover_public_key(hashed, *bids.at(0).signature);
+            // Q: big/little endian matters? what about sn_keccak? or ethereum compatibility?
+            // Q: uint256 => felt252
+            let hashed: felt252 = keccak_u256s_le_inputs(formatted_serialized_msg.span())
+                .try_into()
+                .unwrap();
 
-            // TODO bidder_public_key last 20 bytes for the starknet address == bidder
-
-            assert(
-                self.bidding_state_channel_deposit.read(bidder) >= *winning_bid_amount,
-                'ERR_NOT_ENOUGH_FUNDS'
+            let signature = *bids.at(0).signature;
+            let recovered_bidder_public_key = recover_public_key(
+                hashed, signature.r, signature.s, signature.y_parity
             );
+            match recovered_bidder_public_key {
+                Option::Some(rbpk) => {
+                    let account_contract = AccountABIDispatcher {
+                        contract_address: bidder_address
+                    };
 
-            let erc20 = IERC20Dispatcher { contract_address: self.bidding_token.read() };
-            erc20.transfer_from(get_caller_address(), get_contract_address(), *winning_bid_amount);
+                    let account_public_key = account_contract.get_public_key();
+                    assert(
+                        account_public_key == rbpk, 'Wrong account address'
+                    );
 
-            self.slot_assignments.write(*auctioned_slot_id, *bids.at(0).assignee);
+                    assert(
+                        self
+                            .bidding_state_channel_deposit
+                            .read(bidder_address) >= *winning_bid_amount,
+                        'ERR_NOT_ENOUGH_FUNDS'
+                    );
 
-            let current_slot_assignment_count = self.slot_assignments_count.read();
-            self.slot_assignments_count.write(current_slot_assignment_count + 1);
+                    let erc20 = IERC20Dispatcher { contract_address: self.bidding_token.read() };
+                    erc20
+                        .transfer_from(
+                            get_caller_address(), get_contract_address(), *winning_bid_amount
+                        );
 
-            self.last_assigned_id.write(*auctioned_slot_id);
+                    self.slot_assignments.write(*auctioned_slot_id, *bids.at(0).assignee);
+
+                    let current_slot_assignment_count = self.slot_assignments_count.read();
+                    self.slot_assignments_count.write(current_slot_assignment_count + 1);
+
+                    self.last_assigned_id.write(*auctioned_slot_id);
+                },
+                Option::None(_) => {
+                    assert(false, 'Pub key recovery failed');
+                }
+            }
+        }
+
+        fn upgrade(ref self: ContractState, impl_hash: ClassHash) {
+            assert(!impl_hash.is_zero(), 'Class hash cannot be zero');
+            starknet::replace_class_syscall(impl_hash).unwrap_syscall();
+            self.emit(Event::Upgraded(Upgraded { implementation: impl_hash }))
         }
     }
-
-    // TODO upgrade syscall implementation
 
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
