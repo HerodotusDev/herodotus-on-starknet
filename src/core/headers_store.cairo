@@ -12,6 +12,7 @@ trait IHeadersStore<TContractState> {
     fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
     fn get_latest_mmr_id(self: @TContractState) -> usize;
+    fn get_historical_root(self: @TContractState, mmr_id: usize, size: usize) -> felt252;
 
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
     fn process_received_block(
@@ -75,7 +76,6 @@ mod HeadersStore {
     use result::ResultTrait;
     use option::OptionTrait;
     use clone::Clone;
-    use debug::PrintTrait;
 
     const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
@@ -134,7 +134,7 @@ mod HeadersStore {
         let root = mmr.root;
 
         self.mmr.write(0, mmr);
-        self.mmr_history.write((0, 0), root);
+        self.mmr_history.write((0, 1), root);
         self.latest_mmr_id.write(0);
     }
 
@@ -162,6 +162,10 @@ mod HeadersStore {
 
         fn get_latest_mmr_id(self: @ContractState) -> usize {
             self.latest_mmr_id.read()
+        }
+
+        fn get_historical_root(self: @ContractState, mmr_id: usize, size: usize) -> felt252 {
+            self.mmr_history.read((mmr_id, size))
         }
 
         fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
@@ -193,6 +197,7 @@ mod HeadersStore {
 
             let mut mmr = self.mmr.read(mmr_id);
             mmr.append(poseidon_hash, mmr_peaks).unwrap();
+            self.mmr.write(mmr_id, mmr.clone());
 
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 

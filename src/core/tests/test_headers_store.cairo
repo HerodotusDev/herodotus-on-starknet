@@ -11,6 +11,7 @@ use array::ArrayTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const MMR_INITIAL_ELEMENT: felt252 = 0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
+const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
 fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
     let class_hash = declare('HeadersStore');
@@ -133,5 +134,22 @@ fn test_process_received_block() {
     ].span();
 
     let mmr_id = 0;
+
+    let mmr = dispatcher.get_mmr(mmr_id);
+    let expected_root = MMR_INITIAL_ROOT;
+    assert(mmr.last_pos == 1, 'Wrong initial last_pos');
+    assert(mmr.root == expected_root, 'initial Wrong root');
+
+    let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
+    assert(historical_root == expected_root, 'Wrong initial historical root');
+
     dispatcher.process_received_block(block_number, header_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id);
+
+    let mmr = dispatcher.get_mmr(mmr_id);
+    let expected_root = 0x46d870bc268ff894d760fd8b9076d6e53437f0c61b359b107fef8ec7d50f20e;
+    assert(mmr.last_pos == 3, 'Wrong last_pos');
+    assert(mmr.root == expected_root, 'Wrong root');
+
+    let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
+    assert(historical_root == expected_root, 'Wrong historical root');
 }
