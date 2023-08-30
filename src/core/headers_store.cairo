@@ -76,6 +76,8 @@ mod HeadersStore {
     use option::OptionTrait;
     use clone::Clone;
 
+    const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
+
     #[storage]
     struct Storage {
         commitments_inbox: ContractAddress,
@@ -127,7 +129,7 @@ mod HeadersStore {
     fn constructor(ref self: ContractState, commitments_inbox: ContractAddress) {
         self.commitments_inbox.write(commitments_inbox);
 
-        let mmr: MMR = Default::default();
+        let mmr: MMR = MMRTrait::new(MMR_INITIAL_ROOT, 1);
         let root = mmr.root;
 
         self.mmr.write(0, mmr);
@@ -309,7 +311,7 @@ mod HeadersStore {
         ) {
             assert(HeadersStore::verify_mmr_inclusion(@self, index, blockhash, peaks, proof, mmr_id), 'Invalid proof');
 
-            let mut mmr: MMR = Default::default();
+            let mut mmr: MMR = MMRTrait::new(MMR_INITIAL_ROOT, 1);
             mmr.append(blockhash, array![].span());
 
             let root = mmr.root;
