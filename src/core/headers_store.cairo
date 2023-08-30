@@ -75,6 +75,7 @@ mod HeadersStore {
     use result::ResultTrait;
     use option::OptionTrait;
     use clone::Clone;
+    use debug::PrintTrait;
 
     const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
@@ -191,7 +192,7 @@ mod HeadersStore {
             let poseidon_hash = InternalFunctions::poseidon_hash_rlp(header_rlp);
 
             let mut mmr = self.mmr.read(mmr_id);
-            mmr.append(poseidon_hash, mmr_peaks);
+            mmr.append(poseidon_hash, mmr_peaks).unwrap();
 
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
