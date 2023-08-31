@@ -78,7 +78,7 @@ fn test_process_received_block() {
 
     let block_number = 0x820E53;
     // little endian block hash
-    let real_block_hash = 0x9286BBF9936BDDC873FAF3C5ACEA50D777B8DFA90967D55669D918EC47281725;
+    let real_block_hash = 0x25172847ec18d96956d56709a9dfb877d750eaacc5f3fa73c8dd6b93f9bb8692;
     helper_receive_hash(real_block_hash, block_number, dispatcher, contract_address);
 
     let header_rlp = *helper_get_headers_rlp().at(0);
@@ -101,7 +101,7 @@ fn test_process_batch() {
 
     let initial_block_number = 0x820E53;
     // little endian block hash
-    let real_block_hash = 0x9286BBF9936BDDC873FAF3C5ACEA50D777B8DFA90967D55669D918EC47281725;
+    let real_block_hash = 0x25172847ec18d96956d56709a9dfb877d750eaacc5f3fa73c8dd6b93f9bb8692;
 
     helper_receive_hash(real_block_hash, initial_block_number, dispatcher, contract_address);
 
