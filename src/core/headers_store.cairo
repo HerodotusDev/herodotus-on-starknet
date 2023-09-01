@@ -270,8 +270,17 @@ mod HeadersStore {
             mmr_id: usize,
         ) -> bool {
             let mmr = self.mmr.read(mmr_id);
-            // TODO error handling
-            mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+
+            let result = mmr.verify_proof(index, blockhash, peaks, proof);
+            match result {
+                Result::Ok(r) => {
+                    true
+                },
+                Result::Err(err) => {
+                    // err.print();
+                    false
+                }
+            }
         }
 
         fn verify_historical_mmr_inclusion(
@@ -283,10 +292,18 @@ mod HeadersStore {
             mmr_id: usize,
             last_pos: usize,
         ) -> bool {
-            // TODO error handling
             let root = self.mmr_history.read((mmr_id, last_pos));
             let mmr = MMRTrait::new(root, last_pos);
-            mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+            let result = mmr.verify_proof(index, blockhash, peaks, proof);
+            match result {
+                Result::Ok(r) => {
+                    true
+                },
+                Result::Err(err) => {
+                    // err.print();
+                    false
+                }
+            }
         }
 
         fn create_branch_from_message(ref self: ContractState, root: felt252, last_pos: usize) {

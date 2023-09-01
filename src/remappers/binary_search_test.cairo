@@ -80,7 +80,33 @@ mod binary_search {
 
     #[available_gas(9999999)]
     #[test]
-    fn test_binary_search() {
+    fn test_binary_search_no_element() {
+        let mut arr = ArrayTrait::new();
+        let arr_span = arr.span();
+
+        assert(binary_search(arr_span, 43, Option::Some(false)).is_none(), 'Unexpected result');
+        assert(binary_search(arr_span, 43, Option::Some(true)).is_none(), 'Unexpected result');
+    }
+
+    #[available_gas(9999999)]
+    #[test]
+    fn test_binary_search_single_element() {
+        let mut arr = ArrayTrait::new();
+        arr.append(42);
+
+        let arr_span = arr.span();
+
+        // Exact match -> index retrieval:
+        assert(binary_search(arr_span, 42, Option::Some(false)).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 43, Option::Some(false)).is_none(), 'Unexpected result');
+
+        // Closest to x -> index retrieval:
+        assert(binary_search(arr_span, 43, Option::Some(true)).unwrap() == 0, 'Unexpected result');
+    }
+
+    #[available_gas(9999999)]
+    #[test]
+    fn test_binary_search_many_elements() {
         let mut arr = ArrayTrait::new();
         arr.append(1);
         arr.append(2);

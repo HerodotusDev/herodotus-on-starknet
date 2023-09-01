@@ -1,9 +1,10 @@
+use core::clone::Clone;
 use core::array::SpanTrait;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
-use cairo_lib::utils::types::bytes::{Bytes, BytesTryIntoU256};
+use cairo_lib::utils::types::words64::Words64;
 
-type Headers = Span<Bytes>;
+type Headers = Span<Words64>;
 
 #[derive(Drop, Copy, Serde)]
 struct OriginElement {
@@ -13,7 +14,7 @@ struct OriginElement {
     leaf_value: felt252,
     inclusion_proof: Proof,
     peaks: Peaks,
-    header: Bytes
+    header: Words64
 }
 
 #[derive(Drop, Copy, Serde)]
@@ -27,8 +28,8 @@ struct ProofElement {
 
 #[derive(Drop, Copy, Serde)]
 struct BinarySearchTree {
+    mapper_id: usize,
     mmr_id: usize,
-    size: u256,
     proofs: Span<ProofElement>,
     closest_low_val: Option<ProofElement>,
     closest_high_val: Option<ProofElement>
@@ -48,13 +49,17 @@ trait ITimestampRemappers<TContractState> {
     fn mmr_binary_search(
         self: @TContractState, tree: BinarySearchTree, x: u256, get_closest: Option<bool>
     ) -> Option<u256>;
+
+    fn get_closest_l1_block_number(
+        self: @TContractState, tree: BinarySearchTree, timestamp: u256
+    ) -> Option<u256>;
 }
 
 #[starknet::contract]
 mod TimestampRemappers {
     use super::{
-        ITimestampRemappers, Headers, OriginElement, Proof, Peaks, SpanTrait, Bytes,
-        BytesTryIntoU256, ProofElement, BinarySearchTree
+        ITimestampRemappers, Headers, OriginElement, Proof, Peaks, SpanTrait, Words64, ProofElement,
+        BinarySearchTree
     };
     use starknet::{ContractAddress};
     use zeroable::Zeroable;
@@ -66,16 +71,18 @@ mod TimestampRemappers {
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
 
-    use cairo_lib::hashing::keccak::KeccakTrait;
+    use array::{ArrayTrait};
+    use cairo_lib::hashing::poseidon::PoseidonHasher;
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
-    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
-
+    use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
+    use cairo_lib::utils::types::words64::{reverse_endianness, bytes_used};
+    use clone::Clone;
     use debug::PrintTrait;
 
-    #[derive(Drop, starknet::Store)]
+    #[derive(Drop, Clone, starknet::Store)]
     struct Mapper {
         start_block: u256,
-        latest_block: felt252,
+        elements_count: u256,
         mmr: MMR
     }
 
@@ -107,20 +114,13 @@ mod TimestampRemappers {
     #[external(v0)]
     impl TimestampRemappers of super::ITimestampRemappers<ContractState> {
         fn create_mapper(ref self: ContractState, start_block: u256) -> usize {
-            let mapper = Mapper {
-                start_block: start_block, latest_block: -1, mmr: Default::default(), 
-            };
+            let mapper = Mapper { start_block, elements_count: 0, mmr: Default::default(),  };
 
             let mapper_id = self.mappers_count.read();
             self.mappers.write(mapper_id, mapper);
             self.mappers_count.write(mapper_id + 1);
 
-            self
-                .emit(
-                    Event::MapperCreated(
-                        MapperCreated { mapper_id: mapper_id, start_block: start_block }
-                    )
-                );
+            self.emit(Event::MapperCreated(MapperCreated { mapper_id, start_block }));
 
             mapper_id
         }
@@ -134,11 +134,11 @@ mod TimestampRemappers {
             let headers_store_addr = self.headers_store.read();
 
             let mut mapper = self.mappers.read(mapper_id);
-            let mut mapper_mmr = mapper.mmr;
+            let mut mapper_mmr = mapper.mmr.clone();
             let mut mapper_peaks = mapper_peaks;
 
-            let mut expected_block: u256 = (mapper.latest_block + 1).into();
-            if (mapper.latest_block == -1) {
+            let mut expected_block: u256 = mapper.start_block + mapper.elements_count + 1;
+            if (mapper.elements_count == 0) {
                 expected_block = mapper.start_block;
             }
 
@@ -150,11 +150,11 @@ mod TimestampRemappers {
                 }
                 let origin_element: OriginElement = *origin_elements.at(idx);
                 let origin_element_block_number = extract_header_block_number(
-                    @origin_element.header
+                    origin_element.header
                 );
                 assert(origin_element_block_number == expected_block, 'Unexpected block number');
 
-                let current_hash = KeccakTrait::keccak_cairo(origin_element.header);
+                let current_hash = InternalFunctions::poseidon_hash_rlp(origin_element.header);
                 assert(current_hash == origin_element.leaf_value.into(), 'Invalid header rlp');
 
                 let is_valid_proof = IHeadersStoreDispatcher {
@@ -170,27 +170,32 @@ mod TimestampRemappers {
                     );
                 assert(is_valid_proof, 'Invalid proof');
 
-                let origin_element_timestamp = extract_header_timestamp(@origin_element.header);
+                let origin_element_timestamp = extract_header_timestamp(origin_element.header);
                 mapper_mmr.append(origin_element_timestamp.try_into().unwrap(), mapper_peaks);
 
                 expected_block += 1;
                 idx += 1;
             };
 
-            let last_block_appended: felt252 = (expected_block - 1).try_into().unwrap();
-            mapper.latest_block = last_block_appended;
+            mapper.elements_count += len.into();
+            mapper.mmr = mapper_mmr;
+            self.mappers.write(mapper_id, mapper.clone());
         }
 
         fn mmr_binary_search(
             self: @ContractState, tree: BinarySearchTree, x: u256, get_closest: Option<bool>
         ) -> Option<u256> {
-            if tree.size == 0 {
+            let mapper = self.mappers.read(tree.mapper_id);
+
+            if mapper.elements_count == 0 {
                 return Option::None(());
             }
+
+            let elements_count = mapper.elements_count;
             let headers_store_addr = self.headers_store.read();
 
             let mut low: u256 = 0;
-            let mut high: u256 = tree.size - 1;
+            let mut high: u256 = elements_count - 1;
 
             let proofs: Span<ProofElement> = tree.proofs;
             let mut proof_idx = 0;
@@ -208,17 +213,15 @@ mod TimestampRemappers {
                 );
 
                 let mid_val: u256 = proof_element.value;
-                let is_valid_proof = IHeadersStoreDispatcher {
-                    contract_address: headers_store_addr
-                }
-                    .verify_historical_mmr_inclusion(
-                        proof_element.index,
-                        mid_val.try_into().unwrap(),
-                        proof_element.peaks,
-                        proof_element.proof,
-                        tree.mmr_id,
-                        proof_element.last_pos
-                    );
+                let is_valid_proof = mapper
+                    .mmr
+                    .verify_proof(
+                        index: proof_element.index,
+                        hash: mid_val.try_into().unwrap(),
+                        peaks: proof_element.peaks,
+                        proof: proof_element.proof,
+                    )
+                    .unwrap();
                 assert(is_valid_proof, 'Invalid proof');
 
                 if mid_val == x {
@@ -239,19 +242,40 @@ mod TimestampRemappers {
                 Option::Some(_) => result,
                 Option::None(_) => {
                     if get_closest.unwrap() == true {
-                        closest_from_x(tree, low, high, x, headers_store_addr)
+                        closest_from_x(tree, low, high, x, elements_count, headers_store_addr)
                     } else {
                         result
                     }
                 }
             }
         }
+
+        fn get_closest_l1_block_number(
+            self: @ContractState, tree: BinarySearchTree, timestamp: u256
+        ) -> Option<u256> {
+            let mapper = self.mappers.read(tree.mapper_id);
+            let mapper_mmr = mapper.mmr;
+
+            let mapper_idx = self.mmr_binary_search(tree, timestamp, Option::Some(true));
+            if mapper_idx.is_none() {
+                return Option::None(());
+            }
+
+            let corresponding_block_number: u256 = mapper.start_block + mapper_idx.unwrap();
+            Option::Some(corresponding_block_number)
+        }
     }
 
+
     fn closest_from_x(
-        tree: BinarySearchTree, low: u256, high: u256, x: u256, headers_store_addr: ContractAddress
+        tree: BinarySearchTree,
+        low: u256,
+        high: u256,
+        x: u256,
+        elements_count: u256,
+        headers_store_addr: ContractAddress
     ) -> Option<u256> {
-        if low >= tree.size {
+        if low >= elements_count {
             return Option::Some(high);
         }
         if high < 0 {
@@ -313,32 +337,30 @@ mod TimestampRemappers {
         return Option::Some(high);
     }
 
-    fn extract_header_block_number(header: @Bytes) -> u256 {
-        let (decoded_rlp, _) = rlp_decode(*header).unwrap();
-        let block_number: u256 = match decoded_rlp {
-            RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-            RLPItem::List(l) => {
-                // Block number is the ninth's element in the list
+    fn extract_header_block_number(header: Words64) -> u256 {
+        let (decoded_rlp, _) = rlp_decode_word64(header).unwrap();
+        let block_number: u64 = match decoded_rlp {
+            RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+            RLPItemWord64::List(l) => {
+                // Block number is the eight's element in the list
                 // TODO error handling
-                (*l.at(9)).try_into().unwrap()
+                *(*l.at(8)).at(0)
             },
         };
-
-        block_number
+        reverse_endianness(block_number, Option::Some(bytes_used(block_number).into())).into()
     }
 
-    fn extract_header_timestamp(header: @Bytes) -> u256 {
-        let (decoded_rlp, _) = rlp_decode(*header).unwrap();
-        let timestamp: u256 = match decoded_rlp {
-            RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-            RLPItem::List(l) => {
-                // Timestamp is the twelfth's element in the list
+    fn extract_header_timestamp(header: Words64) -> u256 {
+        let (decoded_rlp, _) = rlp_decode_word64(header).unwrap();
+        let timestamp: u64 = match decoded_rlp {
+            RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+            RLPItemWord64::List(l) => {
+                // Timestamp is the eleventh's element in the list
                 // TODO error handling
-                (*l.at(12)).try_into().unwrap()
+                *(*l.at(11)).at(0)
             },
         };
-
-        timestamp
+        reverse_endianness(timestamp, Option::Some(bytes_used(timestamp).into())).into()
     }
 
     // TODO: port helper functions below to cairo-lib
@@ -357,5 +379,24 @@ mod TimestampRemappers {
 
     fn leaf_index_to_mmr_index(n: u256) -> u256 {
         2 * n - 1 - count_ones(n - 1)
+    }
+
+    #[generate_trait]
+    impl InternalFunctions of InternalFunctionsTrait {
+        fn poseidon_hash_rlp(rlp: Words64) -> felt252 {
+            // TODO refactor hashing logic
+            let mut rlp_felt_arr: Array<felt252> = ArrayTrait::new();
+            let mut i: usize = 0;
+            loop {
+                if i >= rlp.len() {
+                    break ();
+                }
+
+                rlp_felt_arr.append((*rlp.at(i)).into());
+                i += 1;
+            };
+
+            PoseidonHasher::hash_many(rlp_felt_arr.span())
+        }
     }
 }
