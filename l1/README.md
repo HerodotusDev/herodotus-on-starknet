@@ -12,6 +12,12 @@ The recipient is sitting on the other side on L2 (Starknet). We are using the na
 $ forge build
 ```
 
+### Deploy
+
+```shell
+$ source .env; forge script script/L1MessagesSender.s.sol:L1MessagesSenderDeployer --rpc-url $DEPLOY_RPC_URL --broadcast --verify -vvvv
+```
+
 ### Test
 
 ```shell

@@ -6,6 +6,9 @@ gas_reports = ["*"]
 optimizer = true
 optimizer_runs = 20000
 
+[rpc_endpoints]
+goerli = "https://rpc.ankr.com/eth_goerli"
+
 [etherscan]
 goerli = { key = "${ETHERSCAN_API_KEY}" }
 

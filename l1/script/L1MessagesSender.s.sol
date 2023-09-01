@@ -7,7 +7,7 @@ import "forge-std/console.sol";
 import {L1MessagesSender} from "../src/L1MessagesSender.sol";
 import {IStarknetCore} from "../src/interfaces/IStarknetCore.sol";
 
-contract AggregatorsFactoryDeployer is Script {
+contract L1MessagesSenderDeployer is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);

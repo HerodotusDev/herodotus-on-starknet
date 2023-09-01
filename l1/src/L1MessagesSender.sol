@@ -1,18 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import {Ownable} from "openzeppelin/access/Ownable.sol";
+
 import {FormatWords64} from "./lib/FormatWords64.sol";
 import {IStarknetCore} from "./interfaces/IStarknetCore.sol";
 
 import {IAggregatorsFactory} from "./interfaces/IAggregatorsFactory.sol";
 import {IAggregator} from "./interfaces/IAggregator.sol";
 
-contract L1MessagesSender {
+import {Uint256Splitter} from "./lib/Uint256Splitter.sol";
+
+contract L1MessagesSender is Ownable {
+    using Uint256Splitter for uint256;
+
     IStarknetCore public immutable starknetCore;
 
-    uint256 public immutable l2RecipientAddr;
+    uint256 public l2RecipientAddr;
 
-    IAggregatorsFactory public immutable aggregatorsFactory;
+    IAggregatorsFactory public aggregatorsFactory;
 
     /// @dev L2 "receive_commitment" L1 handler selector
     uint256 constant RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR =
@@ -37,49 +43,22 @@ contract L1MessagesSender {
 
     /// @notice Send an exact L1 parent hash to L2
     /// @param blockNumber_ the child block of the requested parent hash
-    function sendExactParentHashToL2(uint256 blockNumber_) external {
+    function sendExactParentHashToL2(uint256 blockNumber_) external payable {
         bytes32 parentHash = blockhash(blockNumber_ - 1);
         require(parentHash != bytes32(0), "ERR_INVALID_BLOCK_NUMBER");
 
-        _sendBlockHashToL2(parentHash, blockNumber_, 0);
+        _sendBlockHashToL2(parentHash, blockNumber_);
     }
 
     /// @notice Send the L1 latest parent hash to L2
-    function sendLatestParentHashToL2() external {
+    function sendLatestParentHashToL2() external payable {
         bytes32 parentHash = blockhash(block.number - 1);
-        _sendBlockHashToL2(parentHash, block.number, 0);
-    }
-
-    function _sendBlockHashToL2(
-        bytes32 parentHash_,
-        uint256 blockNumber_,
-        uint256 slashRewarderL2Addr_
-    ) internal {
-        uint256[] memory message = new uint256[](6);
-        (
-            bytes8 hashWord1,
-            bytes8 hashWord2,
-            bytes8 hashWord3,
-            bytes8 hashWord4
-        ) = FormatWords64.fromBytes32(parentHash_);
-
-        message[0] = uint256(uint64(hashWord1));
-        message[1] = uint256(uint64(hashWord2));
-        message[2] = uint256(uint64(hashWord3));
-        message[3] = uint256(uint64(hashWord4));
-        message[4] = blockNumber_;
-        message[5] = slashRewarderL2Addr_;
-
-        starknetCore.sendMessageToL2(
-            l2RecipientAddr,
-            RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR,
-            message
-        );
+        _sendBlockHashToL2(parentHash, block.number);
     }
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
-    function sendPoseidonMMRTreeToL2(uint256 aggregatorId) external {
-        address existingAggregatorAddr = aggregatorsFactory.getAggregatorById(
+    function sendPoseidonMMRTreeToL2(uint256 aggregatorId) external payable {
+        address existingAggregatorAddr = aggregatorsFactory.aggregatorsById(
             aggregatorId
         );
 
@@ -95,6 +74,27 @@ contract L1MessagesSender {
         _sendPoseidonMMRTreeToL2(poseidonMMRRoot, mmrSize);
     }
 
+    function _sendBlockHashToL2(
+        bytes32 parentHash_,
+        uint256 blockNumber_
+    ) internal {
+        uint256[] memory message = new uint256[](4);
+        (uint256 parentHashLow, uint256 parentHashHigh) = uint256(parentHash_)
+            .split128();
+        (uint256 blockNumberLow, uint256 blockNumberHigh) = blockNumber_
+            .split128();
+        message[0] = parentHashLow;
+        message[1] = parentHashHigh;
+        message[2] = blockNumberLow;
+        message[3] = blockNumberHigh;
+
+        starknetCore.sendMessageToL2{value: msg.value}(
+            l2RecipientAddr,
+            RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR,
+            message
+        );
+    }
+
     function _sendPoseidonMMRTreeToL2(
         bytes32 poseidonMMRRoot,
         uint256 mmrSize
@@ -104,10 +104,27 @@ contract L1MessagesSender {
         message[0] = uint256(poseidonMMRRoot);
         message[1] = mmrSize;
 
-        starknetCore.sendMessageToL2(
+        // Pass along msg.value
+        starknetCore.sendMessageToL2{value: msg.value}(
             l2RecipientAddr,
             RECEIVE_MMR_L1_HANDLER_SELECTOR,
             message
         );
+    }
+
+    /// @notice Set the L2 recipient address
+    /// @param newL2RecipientAddr_ The new L2 recipient address
+    function setL2RecipientAddr(
+        uint256 newL2RecipientAddr_
+    ) external onlyOwner {
+        l2RecipientAddr = newL2RecipientAddr_;
+    }
+
+    /// @notice Set the aggregators factory address
+    /// @param newAggregatorsFactoryAddr_ The new aggregators factory address
+    function setAggregatorsFactoryAddr(
+        address newAggregatorsFactoryAddr_
+    ) external onlyOwner {
+        aggregatorsFactory = IAggregatorsFactory(newAggregatorsFactoryAddr_);
     }
 }
