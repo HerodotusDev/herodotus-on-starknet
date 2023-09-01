@@ -187,6 +187,8 @@ mod TimestampRemappers {
         ) -> Option<u256> {
             let mapper = self.mappers.read(tree.mapper_id);
 
+            let mmr = mapper.mmr.clone();
+
             if mapper.elements_count == 0 {
                 return Option::None(());
             }
@@ -242,7 +244,7 @@ mod TimestampRemappers {
                 Option::Some(_) => result,
                 Option::None(_) => {
                     if get_closest.unwrap() == true {
-                        closest_from_x(tree, low, high, x, elements_count, headers_store_addr)
+                        closest_from_x(tree, low, high, x, elements_count, mmr, headers_store_addr)
                     } else {
                         result
                     }
@@ -266,13 +268,13 @@ mod TimestampRemappers {
         }
     }
 
-
     fn closest_from_x(
         tree: BinarySearchTree,
         low: u256,
         high: u256,
         x: u256,
         elements_count: u256,
+        mapper_mmr: MMR,
         headers_store_addr: ContractAddress
     ) -> Option<u256> {
         if low >= elements_count {
@@ -287,31 +289,25 @@ mod TimestampRemappers {
         assert(tree_closest_low_val.index.into() == low, 'Unexpected proof index (low)');
         assert(tree_closest_high_val.index.into() == high, 'Unexpected proof index (high)');
 
-        let is_valid_low_proof = IHeadersStoreDispatcher {
-            contract_address: headers_store_addr
-        }
-            .verify_historical_mmr_inclusion(
+        let is_valid_low_proof = mapper_mmr
+            .verify_proof(
                 tree_closest_low_val.index,
                 tree_closest_low_val.value.try_into().unwrap(),
                 tree_closest_low_val.peaks,
                 tree_closest_low_val.proof,
-                tree.mmr_id,
-                tree_closest_low_val.last_pos
-            );
-        assert(is_valid_low_proof, 'Invalid proof (low)');
+            )
+            .unwrap();
+        assert(is_valid_low_proof, 'Invalid proof');
 
-        let is_valid_high_proof = IHeadersStoreDispatcher {
-            contract_address: headers_store_addr
-        }
-            .verify_historical_mmr_inclusion(
+        let is_valid_low_proof = mapper_mmr
+            .verify_proof(
                 tree_closest_high_val.index,
                 tree_closest_high_val.value.try_into().unwrap(),
                 tree_closest_high_val.peaks,
                 tree_closest_high_val.proof,
-                tree.mmr_id,
-                tree_closest_high_val.last_pos
-            );
-        assert(is_valid_high_proof, 'Invalid proof (high)');
+            )
+            .unwrap();
+        assert(is_valid_low_proof, 'Invalid proof');
 
         let low_val: u256 = tree_closest_low_val.value;
         let high_val: u256 = tree_closest_high_val.value;
@@ -336,6 +332,7 @@ mod TimestampRemappers {
 
         return Option::Some(high);
     }
+
 
     fn extract_header_block_number(header: Words64) -> u256 {
         let (decoded_rlp, _) = rlp_decode_word64(header).unwrap();
