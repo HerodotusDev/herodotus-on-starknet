@@ -89,13 +89,23 @@ mod TimestampRemappers {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
-        MapperCreated: MapperCreated
+        MapperCreated: MapperCreated,
+        RemappedBlocks: RemappedBlocks
     }
 
     #[derive(Drop, starknet::Event)]
     struct MapperCreated {
         mapper_id: usize,
         start_block: u256
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct RemappedBlocks {
+        mapper_id: usize,
+        start_block: u256,
+        end_block: u256,
+        mmr_root: felt252,
+        mmr_size: usize
     }
 
     #[storage]
@@ -178,8 +188,11 @@ mod TimestampRemappers {
             };
 
             mapper.elements_count += len.into();
-            mapper.mmr = mapper_mmr;
+            mapper.mmr = mapper_mmr.clone();
+
             self.mappers.write(mapper_id, mapper.clone());
+            self.emit(Event::RemappedBlocks(RemappedBlocks { mapper_id, start_block: mapper.start_block, end_block: expected_block, mmr_root: mapper_mmr.root, mmr_size: mapper_mmr.last_pos }));
+            
         }
 
         fn mmr_binary_search(
