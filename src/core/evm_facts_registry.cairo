@@ -230,7 +230,7 @@ mod EVMFactsRegistry {
             self
                 .emit(
                     Event::AccountProven(
-                        AccountProven { account: account_felt252, block: 1, fields }
+                        AccountProven { account: account_felt252, block, fields }
                     )
                 );
         }
