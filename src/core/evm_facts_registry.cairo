@@ -34,6 +34,9 @@ trait IEVMFactsRegistry<TContractState> {
     fn prove_storage(
         ref self: TContractState, block: u256, account: felt252, slot: Words64, mpt_proof: Span<Words64>
     );
+    
+    // TODO get_account
+    // TODO get_storage
 }
 
 #[starknet::contract]

@@ -14,6 +14,24 @@ trait IHeadersStore<TContractState> {
     fn get_latest_mmr_id(self: @TContractState) -> usize;
     fn get_historical_root(self: @TContractState, mmr_id: usize, size: usize) -> felt252;
 
+    fn verify_mmr_inclusion(
+        self: @TContractState,
+        index: usize,
+        poseidon_blockhash: felt252,
+        peaks: Peaks,
+        proof: Proof,
+        mmr_id: usize,
+    ) -> bool;
+    fn verify_historical_mmr_inclusion(
+        self: @TContractState,
+        index: usize,
+        poseidon_blockhash: felt252,
+        peaks: Peaks,
+        proof: Proof,
+        mmr_id: usize,
+        last_pos: usize,
+    ) -> bool;
+
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
     fn process_received_block(
         ref self: TContractState,
@@ -30,29 +48,12 @@ trait IHeadersStore<TContractState> {
         mmr_id: usize,
     );
 
-    fn verify_mmr_inclusion(
-        self: @TContractState,
-        index: usize,
-        blockhash: felt252,
-        peaks: Peaks,
-        proof: Proof,
-        mmr_id: usize,
-    ) -> bool;
-    fn verify_historical_mmr_inclusion(
-        self: @TContractState,
-        index: usize,
-        blockhash: felt252,
-        peaks: Peaks,
-        proof: Proof,
-        mmr_id: usize,
-        last_pos: usize,
-    ) -> bool;
 
     fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
     fn create_branch_single_element(
         ref self: TContractState, 
         index: usize, 
-        blockhash: felt252,
+        initial_poseidon_blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
         mmr_id: usize,
@@ -171,18 +172,6 @@ mod HeadersStore {
             self.mmr_history.read((mmr_id, size))
         }
 
-        fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
-            let caller = get_caller_address();
-            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
-
-            self.received_blocks.write(block_number, blockhash);
-
-            self.emit(Event::HashReceived(HashReceived {
-                block_number,
-                blockhash
-            }));
-        }
-
         fn process_received_block(
             ref self: ContractState,
             block_number: u256, 
@@ -273,23 +262,35 @@ mod HeadersStore {
             }));
         }
 
+        fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
+            let caller = get_caller_address();
+            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
+
+            self.received_blocks.write(block_number, blockhash);
+
+            self.emit(Event::HashReceived(HashReceived {
+                block_number,
+                blockhash
+            }));
+        }
+
         fn verify_mmr_inclusion(
             self: @ContractState,
             index: usize,
-            blockhash: felt252,
+            poseidon_blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
             mmr_id: usize,
         ) -> bool {
             let mmr = self.mmr.read(mmr_id);
             // TODO error handling
-            mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).unwrap()
         }
 
         fn verify_historical_mmr_inclusion(
             self: @ContractState,
             index: usize,
-            blockhash: felt252,
+            poseidon_blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
             mmr_id: usize,
@@ -298,7 +299,7 @@ mod HeadersStore {
             // TODO error handling
             let root = self.mmr_history.read((mmr_id, last_pos));
             let mmr = MMRTrait::new(root, last_pos);
-            mmr.verify_proof(index, blockhash, peaks, proof).unwrap()
+            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).unwrap()
         }
 
         fn create_branch_from_message(ref self: ContractState, root: felt252, last_pos: usize) {
@@ -321,15 +322,15 @@ mod HeadersStore {
         fn create_branch_single_element(
             ref self: ContractState,
             index: usize, 
-            blockhash: felt252,
+            initial_poseidon_blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
             mmr_id: usize,
         ) {
-            assert(HeadersStore::verify_mmr_inclusion(@self, index, blockhash, peaks, proof, mmr_id), 'Invalid proof');
+            assert(HeadersStore::verify_mmr_inclusion(@self, index, initial_poseidon_blockhash, peaks, proof, mmr_id), 'Invalid proof');
 
             let mut mmr: MMR = Default::default();
-            mmr.append(blockhash, array![].span());
+            mmr.append(initial_poseidon_blockhash, array![].span());
 
             let root = mmr.root;
             let last_pos = mmr.last_pos;
