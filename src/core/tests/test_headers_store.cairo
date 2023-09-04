@@ -108,7 +108,7 @@ fn test_process_batch() {
     let headers_rlp = helper_get_headers_rlp();
 
     let mmr_id = 0;
-    dispatcher.process_batch(initial_block_number, headers_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id);
+    dispatcher.process_batch(headers_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id, Option::Some(initial_block_number), Option::None(()), Option::None(()));
 
     let mmr = dispatcher.get_mmr(mmr_id);
     let expected_root = 0x210fe3c945426fcca6b555a37a8e34a0929ff2cca7a2029f854873ae2d4c77d;

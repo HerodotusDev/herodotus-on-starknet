@@ -42,10 +42,12 @@ trait IHeadersStore<TContractState> {
     );
     fn process_batch(
         ref self: TContractState,
-        initial_block: u256, 
         headers_rlp: Span<Words64>,
         mmr_peaks: Peaks,
         mmr_id: usize,
+        initial_block: Option<u256>, 
+        mmr_index: Option<usize>,
+        mmr_proof: Option<Proof>,
     );
 
 
@@ -203,12 +205,14 @@ mod HeadersStore {
 
         fn process_batch(
             ref self: ContractState,
-            initial_block: u256, 
             headers_rlp: Span<Words64>,
             mmr_peaks: Peaks,
             mmr_id: usize,
+            initial_block: Option<u256>, 
+            mmr_index: Option<usize>,
+            mmr_proof: Option<Proof>,
         ) {
-            let initial_blockhash = self.received_blocks.read(initial_block);
+            let initial_blockhash = self.received_blocks.read(initial_block.unwrap());
             assert(initial_blockhash != Zeroable::zero(), 'Block not received');
             // TODO initial block can also be present in the MMR, if present, don't append
 
@@ -254,8 +258,8 @@ mod HeadersStore {
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
             self.emit(Event::ProcessedBatch(ProcessedBatch {
-                block_start: initial_block,
-                block_end: initial_block - headers_rlp.len().into() + 1,
+                block_start: initial_block.unwrap(),
+                block_end: initial_block.unwrap() - headers_rlp.len().into() + 1,
                 new_root: mmr.root,
                 new_size: mmr.last_pos,
                 mmr_id
