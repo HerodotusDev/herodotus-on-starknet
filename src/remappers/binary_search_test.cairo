@@ -3,6 +3,7 @@ mod binary_search {
     use option::OptionTrait;
     use core::array::{ArrayTrait, SpanTrait};
     use traits::{Into, TryInto, PartialOrd};
+    use debug::PrintTrait;
 
     fn binary_search(arr: Span<u256>, x: u256, get_closest: Option<bool>) -> Option<u256> {
         let arr_len: u256 = arr.len().into();
@@ -31,7 +32,7 @@ mod binary_search {
                 }
                 high = mid - 1;
             }
-            low = low;
+            continue;
         };
 
         match result {
@@ -57,25 +58,17 @@ mod binary_search {
         let low_val: u256 = *arr.at(low.try_into().unwrap());
         let high_val: u256 = *arr.at(high.try_into().unwrap());
 
-        let mut a = 0;
-        if low_val > x {
-            a = low_val - x;
-        } else {
-            a = x - low_val;
+        if low_val <= x && high_val <= x {
+            if low_val > high_val {
+                return Option::Some(low);
+            }
+            return Option::Some(high);
         }
 
-        let mut b = 0;
-        if high_val > x {
-            b = high_val - x;
-        } else {
-            b = x - high_val;
+        if high_val <= x {
+            return Option::Some(high);
         }
-
-        if a < b {
-            return Option::Some(low);
-        }
-
-        return Option::Some(high);
+        return Option::Some(low);
     }
 
     #[available_gas(9999999)]
@@ -117,21 +110,30 @@ mod binary_search {
         let arr_span = arr.span();
 
         // Exact match -> index retrieval:
-        assert(binary_search(arr_span, 1, Option::Some(false)).unwrap() == 0, 'Unexpected result');
-        assert(binary_search(arr_span, 2, Option::Some(false)).unwrap() == 1, 'Unexpected result');
-        assert(binary_search(arr_span, 3, Option::Some(false)).unwrap() == 2, 'Unexpected result');
-        assert(binary_search(arr_span, 4, Option::Some(false)).unwrap() == 3, 'Unexpected result');
-        assert(binary_search(arr_span, 5, Option::Some(false)).unwrap() == 4, 'Unexpected result');
-        assert(binary_search(arr_span, 6, Option::Some(false)).is_none(), 'Unexpected result');
+        assert(
+            binary_search(arr_span, 1, Option::Some(false)).unwrap() == 0, 'Unexpected result 1'
+        );
+        assert(
+            binary_search(arr_span, 2, Option::Some(false)).unwrap() == 1, 'Unexpected result 2'
+        );
+        assert(
+            binary_search(arr_span, 3, Option::Some(false)).unwrap() == 2, 'Unexpected result 3'
+        );
+        assert(
+            binary_search(arr_span, 4, Option::Some(false)).unwrap() == 3, 'Unexpected result 4'
+        );
+        assert(
+            binary_search(arr_span, 5, Option::Some(false)).unwrap() == 4, 'Unexpected result 5'
+        );
+        assert(binary_search(arr_span, 6, Option::Some(false)).is_none(), 'Unexpected result 6');
 
         // Closest to x -> index retrieval:
-        assert(binary_search(arr_span, 6, Option::Some(true)).unwrap() == 4, 'Unexpected result');
-        assert(binary_search(arr_span, 1, Option::Some(true)).unwrap() == 0, 'Unexpected result');
-        assert(binary_search(arr_span, 2, Option::Some(true)).unwrap() == 1, 'Unexpected result');
-        assert(binary_search(arr_span, 3, Option::Some(true)).unwrap() == 2, 'Unexpected result');
-        assert(binary_search(arr_span, 4, Option::Some(true)).unwrap() == 3, 'Unexpected result');
-        assert(binary_search(arr_span, 5, Option::Some(true)).unwrap() == 4, 'Unexpected result');
-        assert(binary_search(arr_span, 6, Option::Some(true)).unwrap() == 4, 'Unexpected result');
-        assert(binary_search(arr_span, 0, Option::Some(true)).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 1, Option::Some(true)).unwrap() == 0, 'Unexpected result a');
+        assert(binary_search(arr_span, 2, Option::Some(true)).unwrap() == 1, 'Unexpected result b');
+        assert(binary_search(arr_span, 3, Option::Some(true)).unwrap() == 2, 'Unexpected result c');
+        assert(binary_search(arr_span, 4, Option::Some(true)).unwrap() == 3, 'Unexpected result d');
+        assert(binary_search(arr_span, 5, Option::Some(true)).unwrap() == 4, 'Unexpected result e');
+        assert(binary_search(arr_span, 6, Option::Some(true)).unwrap() == 4, 'Unexpected result f');
+        assert(binary_search(arr_span, 0, Option::Some(true)).unwrap() == 0, 'Unexpected result g');
     }
 }

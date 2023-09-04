@@ -6,7 +6,7 @@ use cairo_lib::utils::types::words64::Words64;
 
 type Headers = Span<Words64>;
 
-#[derive(Drop, Copy, Serde)]
+#[derive(Drop, Serde)]
 struct OriginElement {
     tree_id: usize,
     tree_size: usize,
@@ -158,29 +158,29 @@ mod TimestampRemappers {
                 if idx == len {
                     break ();
                 }
-                let origin_element: OriginElement = *origin_elements.at(idx);
+                let origin_element: @OriginElement = origin_elements.at(idx);
                 let origin_element_block_number = extract_header_block_number(
-                    origin_element.header
+                    *origin_element.header
                 );
                 assert(origin_element_block_number == expected_block, 'Unexpected block number');
 
-                let current_hash = InternalFunctions::poseidon_hash_rlp(origin_element.header);
-                assert(current_hash == origin_element.leaf_value.into(), 'Invalid header rlp');
+                let current_hash = InternalFunctions::poseidon_hash_rlp(*origin_element.header);
+                assert(current_hash == *origin_element.leaf_value.into(), 'Invalid header rlp');
 
                 let is_valid_proof = IHeadersStoreDispatcher {
                     contract_address: headers_store_addr
                 }
                     .verify_historical_mmr_inclusion(
-                        origin_element.leaf_idx,
-                        origin_element.leaf_value,
-                        origin_element.peaks,
-                        origin_element.inclusion_proof,
-                        origin_element.tree_id,
-                        origin_element.tree_size
+                        *origin_element.leaf_idx,
+                        *origin_element.leaf_value,
+                        *origin_element.peaks,
+                        *origin_element.inclusion_proof,
+                        *origin_element.tree_id,
+                        *origin_element.tree_size
                     );
                 assert(is_valid_proof, 'Invalid proof');
 
-                let origin_element_timestamp = extract_header_timestamp(origin_element.header);
+                let origin_element_timestamp = extract_header_timestamp(*origin_element.header);
                 mapper_mmr.append(origin_element_timestamp.try_into().unwrap(), mapper_peaks);
 
                 expected_block += 1;
@@ -191,8 +191,18 @@ mod TimestampRemappers {
             mapper.mmr = mapper_mmr.clone();
 
             self.mappers.write(mapper_id, mapper.clone());
-            self.emit(Event::RemappedBlocks(RemappedBlocks { mapper_id, start_block: mapper.start_block, end_block: expected_block, mmr_root: mapper_mmr.root, mmr_size: mapper_mmr.last_pos }));
-            
+            self
+                .emit(
+                    Event::RemappedBlocks(
+                        RemappedBlocks {
+                            mapper_id,
+                            start_block: mapper.start_block,
+                            end_block: expected_block,
+                            mmr_root: mapper_mmr.root,
+                            mmr_size: mapper_mmr.last_pos
+                        }
+                    )
+                );
         }
 
         fn mmr_binary_search(
@@ -325,25 +335,17 @@ mod TimestampRemappers {
         let low_val: u256 = tree_closest_low_val.value;
         let high_val: u256 = tree_closest_high_val.value;
 
-        let mut a = 0;
-        if low_val > x {
-            a = low_val - x;
-        } else {
-            a = x - low_val;
+        if low_val <= x && high_val <= x {
+            if low_val > high_val {
+                return Option::Some(low);
+            }
+            return Option::Some(high);
         }
 
-        let mut b = 0;
-        if high_val > x {
-            b = high_val - x;
-        } else {
-            b = x - high_val;
+        if high_val <= x {
+            return Option::Some(high);
         }
-
-        if a < b {
-            return Option::Some(low);
-        }
-
-        return Option::Some(high);
+        return Option::Some(low);
     }
 
 
