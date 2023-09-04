@@ -208,12 +208,12 @@ fn test_remappers() {
     test_proof(@mmr);
 
     let headers_store_dispatcher = IHeadersStoreDispatcher { contract_address: headers_store };
-    let mmr_id = 4242; // Arbitrary MMR id
+    let mmr_id = 1; // First MMR
 
     start_prank(headers_store, 0.try_into().unwrap());
     headers_store_dispatcher
-        .force_create_mmr(
-            mmr_id, 0x2529764d77db01a12aefd2a8cdf885beea6f0a610fa5c04065d2be8e01cf2a1, 1
+        .create_branch_from_message(
+            0x2529764d77db01a12aefd2a8cdf885beea6f0a610fa5c04065d2be8e01cf2a1, 1
         ); // poseidon_hash(1, hexRlp(9260751))
     stop_prank(headers_store);
 

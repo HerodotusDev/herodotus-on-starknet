@@ -67,9 +67,6 @@ trait IHeadersStore<TContractState> {
     );
 
     fn create_branch_from(ref self: TContractState, mmr_id: usize);
-
-    // TODO: remove
-    fn force_create_mmr(ref self: TContractState, mmr_id: usize, root: felt252, last_pos: usize);
 }
 
 #[starknet::contract]
@@ -357,18 +354,6 @@ mod HeadersStore {
             self.latest_mmr_id.write(mmr_id);
 
             self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
-        }
-
-        // TODO: testing purposes only (remove before production)
-        fn force_create_mmr(
-            ref self: ContractState, mmr_id: usize, root: felt252, last_pos: usize
-        ) {
-            let caller = get_caller_address();
-            assert(caller == Zeroable::zero(), 'Only AddressZero');
-
-            let mmr = MMRTrait::new(root, last_pos);
-            self.mmr.write(mmr_id, mmr);
-            self.mmr_history.write((mmr_id, last_pos), root);
         }
     }
 

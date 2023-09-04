@@ -375,8 +375,7 @@ mod TimestampRemappers {
         reverse_endianness(timestamp, Option::Some(bytes_used(timestamp).into())).into()
     }
 
-    // TODO: port helper functions below to cairo-lib
-
+    // TODO: port to cairo-lib
     fn count_ones(n: u256) -> u256 {
         let mut n = n;
         let mut count = 0;
@@ -389,6 +388,7 @@ mod TimestampRemappers {
         }
     }
 
+    // TODO: port to cairo-lib
     fn leaf_index_to_mmr_index(n: u256) -> u256 {
         2 * n - 1 - count_ones(n - 1)
     }
