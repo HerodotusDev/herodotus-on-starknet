@@ -31,8 +31,7 @@ struct BinarySearchTree {
     mapper_id: usize,
     mmr_id: usize,
     proofs: Span<ProofElement>,
-    closest_low_val: Option<ProofElement>,
-    closest_high_val: Option<ProofElement>
+    left_neighbor: Option<ProofElement>,
 }
 
 #[starknet::interface]
@@ -46,9 +45,7 @@ trait ITimestampRemappers<TContractState> {
         origin_elements: Span<OriginElement>
     );
 
-    fn mmr_binary_search(
-        self: @TContractState, tree: BinarySearchTree, x: u256, get_closest: Option<bool>
-    ) -> Option<u256>;
+    fn mmr_binary_search(self: @TContractState, tree: BinarySearchTree, x: u256) -> Option<u256>;
 
     fn get_closest_l1_block_number(
         self: @TContractState, tree: BinarySearchTree, timestamp: u256
@@ -206,7 +203,7 @@ mod TimestampRemappers {
         }
 
         fn mmr_binary_search(
-            self: @ContractState, tree: BinarySearchTree, x: u256, get_closest: Option<bool>
+            self: @ContractState, tree: BinarySearchTree, x: u256
         ) -> Option<u256> {
             let mapper = self.mappers.read(tree.mapper_id);
 
@@ -219,17 +216,17 @@ mod TimestampRemappers {
             let elements_count = mapper.elements_count;
             let headers_store_addr = self.headers_store.read();
 
-            let mut low: u256 = 0;
-            let mut high: u256 = elements_count - 1;
-
             let proofs: Span<ProofElement> = tree.proofs;
             let mut proof_idx = 0;
-            let result = loop {
-                if low > high {
-                    break Option::None(());
+
+            let mut left: u256 = 0;
+            let mut right: u256 = elements_count;
+            loop {
+                if left >= right {
+                    break;
                 }
 
-                let mid: u256 = (low + high) / 2;
+                let mid: u256 = (left + right) / 2;
                 let proof_element: ProofElement = *proofs.at(proof_idx);
 
                 assert(
@@ -248,31 +245,34 @@ mod TimestampRemappers {
                     )
                     .unwrap();
                 assert(is_valid_proof, 'Invalid proof');
-
-                if mid_val == x {
-                    break Option::Some(mid);
-                }
-                if mid_val < x {
-                    low = mid + 1;
+                if x >= mid_val {
+                    left = mid + 1;
                 } else {
-                    if mid == 0 {
-                        break Option::None(());
-                    }
-                    high = mid - 1;
+                    right = mid;
                 }
                 proof_idx += 1;
             };
-
-            match result {
-                Option::Some(_) => result,
-                Option::None(_) => {
-                    if get_closest.unwrap() == true {
-                        closest_from_x(tree, low, high, x, elements_count, mmr, headers_store_addr)
-                    } else {
-                        result
-                    }
-                }
+            if left == 0 {
+                return Option::None(());
             }
+            let closest_idx: u256 = left - 1;
+            let tree_closest_low_val = tree.left_neighbor.unwrap();
+
+            assert(
+                tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
+                'Unexpected proof index (c)'
+            );
+
+            let is_valid_low_proof = mmr
+                .verify_proof(
+                    tree_closest_low_val.index,
+                    tree_closest_low_val.value.try_into().unwrap(),
+                    tree_closest_low_val.peaks,
+                    tree_closest_low_val.proof,
+                )
+                .unwrap();
+            assert(is_valid_low_proof, 'Invalid proof');
+            return Option::Some(closest_idx);
         }
 
         fn get_closest_l1_block_number(
@@ -281,7 +281,7 @@ mod TimestampRemappers {
             let mapper = self.mappers.read(tree.mapper_id);
             let mapper_mmr = mapper.mmr;
 
-            let mapper_idx = self.mmr_binary_search(tree, timestamp, Option::Some(true));
+            let mapper_idx = self.mmr_binary_search(tree, timestamp);
             if mapper_idx.is_none() {
                 return Option::None(());
             }
@@ -290,64 +290,6 @@ mod TimestampRemappers {
             Option::Some(corresponding_block_number)
         }
     }
-
-    fn closest_from_x(
-        tree: BinarySearchTree,
-        low: u256,
-        high: u256,
-        x: u256,
-        elements_count: u256,
-        mapper_mmr: MMR,
-        headers_store_addr: ContractAddress
-    ) -> Option<u256> {
-        if low >= elements_count {
-            return Option::Some(high);
-        }
-        if high < 0 {
-            return Option::Some(low);
-        }
-        let tree_closest_low_val = tree.closest_low_val.unwrap();
-        let tree_closest_high_val = tree.closest_high_val.unwrap();
-
-        assert(tree_closest_low_val.index.into() == low, 'Unexpected proof index (low)');
-        assert(tree_closest_high_val.index.into() == high, 'Unexpected proof index (high)');
-
-        let is_valid_low_proof = mapper_mmr
-            .verify_proof(
-                tree_closest_low_val.index,
-                tree_closest_low_val.value.try_into().unwrap(),
-                tree_closest_low_val.peaks,
-                tree_closest_low_val.proof,
-            )
-            .unwrap();
-        assert(is_valid_low_proof, 'Invalid proof');
-
-        let is_valid_low_proof = mapper_mmr
-            .verify_proof(
-                tree_closest_high_val.index,
-                tree_closest_high_val.value.try_into().unwrap(),
-                tree_closest_high_val.peaks,
-                tree_closest_high_val.proof,
-            )
-            .unwrap();
-        assert(is_valid_low_proof, 'Invalid proof');
-
-        let low_val: u256 = tree_closest_low_val.value;
-        let high_val: u256 = tree_closest_high_val.value;
-
-        if low_val <= x && high_val <= x {
-            if low_val > high_val {
-                return Option::Some(low);
-            }
-            return Option::Some(high);
-        }
-
-        if high_val <= x {
-            return Option::Some(high);
-        }
-        return Option::Some(low);
-    }
-
 
     fn extract_header_block_number(header: Words64) -> u256 {
         let (decoded_rlp, _) = rlp_decode_word64(header).unwrap();

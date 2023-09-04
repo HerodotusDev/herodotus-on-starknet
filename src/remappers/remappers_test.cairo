@@ -235,13 +235,20 @@ fn test_remappers() {
         mapper_id: mapper_id,
         mmr_id: mmr_id,
         proofs: proofs.span(),
-        closest_low_val: Option::None,
-        closest_high_val: Option::None,
+        left_neighbor: Option::Some(
+            ProofElement {
+                index: 1,
+                value: 1578761039,
+                peaks: peaks.span(),
+                proof: ArrayTrait::new().span(),
+                last_pos: 1,
+            }
+        ),
     };
     let timestamp = 1578761039; // Element to find (exact match)
-    let result_idx = remapper_dispatcher.mmr_binary_search(tree, timestamp, Option::Some(false));
+    let result_idx = remapper_dispatcher.mmr_binary_search(tree, timestamp);
     assert(result_idx.unwrap() == 0, 'Invalid index');
-    // Test corresponding block number
+
     let corresponding_block_number: u256 = remapper_dispatcher
         .get_closest_l1_block_number(tree, timestamp)
         .unwrap();
