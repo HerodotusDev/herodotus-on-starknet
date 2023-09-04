@@ -3,11 +3,19 @@ trait ITurboSwap<TContractState> {
     fn set_multiple_header_props(
         ref self: TContractState, attestations: Span<TurboSwap::HeaderPropertiesAttestation>
     );
-    fn clear_multiple_headers_storage_slots(
-        ref self: TContractState, resets: Span<TurboSwap::HeaderReset>
+    fn clear_multiple_header_slots(ref self: TContractState, resets: Span<TurboSwap::HeaderReset>);
+    fn set_multiple_storage_slots(
+        ref self: TContractState, attestations: Span<TurboSwap::StorageSlotAttestation>
     );
-    fn set_multiple_storage_slots(ref self: TContractState, attestations: Span<TurboSwap::StorageSlotAttestation>);
-    fn clear_multiple_storage_slots(ref self: TContractState,  attestations: Span<TurboSwap::StorageSlotAttestation>);
+    fn clear_multiple_storage_slots(
+        ref self: TContractState, attestations: Span<TurboSwap::StorageSlotAttestation>
+    );
+    fn set_multiple_accounts(
+        ref self: TContractState, attestations: Span<TurboSwap::AccountAttestation>
+    );
+    fn clear_multiple_accounts(
+        ref self: TContractState, attestations: Span<TurboSwap::AccountAttestation>
+    );
 }
 
 
@@ -25,7 +33,7 @@ mod TurboSwap {
         IHeadersStoreDispatcher, IHeadersStoreDispatcherTrait
     };
     use herodotus_eth_starknet::core::evm_facts_registry::{
-        IEVMFactsRegistryDispatcher, IEVMFactsRegistryDispatcherTrait
+        IEVMFactsRegistryDispatcher, IEVMFactsRegistryDispatcherTrait, AccountField
     };
     use cairo_lib::utils::types::words64::{Words64, Words64Trait};
     use cairo_lib::encoding::rlp_word64::{rlp_decode_word64, RLPItemWord64};
@@ -36,7 +44,8 @@ mod TurboSwap {
         facts_registries: LegacyMap<u256, ContractAddress>,
         headers_processors: LegacyMap<u256, ContractAddress>,
         auctioning_system: ContractAddress,
-        _headers: LegacyMap<(u256, u256, u64), usize>,
+        _headers: LegacyMap<(u256, u256, u256), u256>,
+        _accounts: LegacyMap<(u256, u256, felt, u256), u256>,
         _storageSlots: LegacyMap::<(u256, u256, felt252, u256), u256>
     }
 
@@ -52,11 +61,25 @@ mod TurboSwap {
         MIX_HASH: ()
     }
 
+    #[derive(Drop, Serde)]
+    enum AccountProperty {
+        NONCE: (),
+        BALANCE: (),
+        STORAGE_HASH: (),
+        CODE_HASH: ()
+    }
+
+    #[derive(Drop, Serde)]
+    enum Property {
+        Account: AccountProperty,
+        Header: HeaderProperty,
+    }
+
 
     #[derive(Drop, Serde)]
     struct HeaderPropertiesAttestation {
         chain_id: u256,
-        properties: Span<HeaderProperty>,
+        properties: Span<Property>,
         recipient: ContractAddress,
         // proof section
         tree_id: usize,
@@ -72,7 +95,7 @@ mod TurboSwap {
     struct HeaderReset {
         chain_id: u256,
         block_number: u256,
-        properties: Span<HeaderProperty>
+        properties: Span<Property>
     }
 
     #[derive(Drop, Serde)]
@@ -81,6 +104,15 @@ mod TurboSwap {
         account: felt252,
         block_number: u256,
         slot: u256
+    }
+
+
+    #[derive(Drop, Serde)]
+    struct AccountAttestation {
+        chain_id: u256,
+        account: felt252,
+        block_number: u256,
+        property: Property
     }
 
 
@@ -159,13 +191,24 @@ mod TurboSwap {
                                                 break;
                                             }
                                             let property = (*attestation.properties).at(j);
-                                            // TODO: implement => let value = self.header_serialized. get_header_property?(property)
-                                            self
-                                                ._headers
-                                                .write(
-                                                    (*attestation.chain_id, block_number, property),
-                                                    0
-                                                );
+                                            match InternalFunctions::_property_to_uint(property) {
+                                                Result::Ok(property_uint) => {
+                                                    // TODO: implement: let value = self.header_serialized. get_header_property?(property)
+                                                    self
+                                                        ._headers
+                                                        .write(
+                                                            (
+                                                                *attestation.chain_id,
+                                                                block_number,
+                                                                property_uint
+                                                            ),
+                                                            0
+                                                        );
+                                                },
+                                                Result::Err(_) => {
+                                                    assert(false, 'Failed to get enum');
+                                                }
+                                            };
                                         }
                                     }
                                 }
@@ -182,9 +225,7 @@ mod TurboSwap {
             }
         }
 
-        fn clear_multiple_headers_storage_slots(
-            ref self: ContractState, resets: Span<HeaderReset>
-        ) {
+        fn clear_multiple_header_slots(ref self: ContractState, resets: Span<HeaderReset>) {
             assert(
                 get_caller_address() == InternalFunctions::_swap_fullfillment_assignee(ref self),
                 'TurboSwap: Winner-only.'
@@ -203,7 +244,7 @@ mod TurboSwap {
                         break;
                     }
 
-                    match InternalFunctions::_enum_to_uint((*reset.properties).at(i)) {
+                    match InternalFunctions::_property_to_uint((*reset.properties).at(j)) {
                         Result::Ok(property_uint) => {
                             self
                                 ._headers
@@ -287,6 +328,108 @@ mod TurboSwap {
                     );
             }
         }
+
+        fn set_multiple_accounts(ref self: ContractState, attestations: Span<AccountAttestation>) {
+            assert(
+                get_caller_address() == InternalFunctions::_swap_fullfillment_assignee(ref self),
+                'TurboSwap: Winner-only.'
+            );
+
+            let mut i = 0;
+            loop {
+                if (i >= attestations.len()) {
+                    break;
+                }
+                let attestation = attestations.at(i);
+
+                let facts_registry = InternalFunctions::_get_facts_registry_for_chain(
+                    ref self, *attestation.chain_id
+                );
+
+                assert(
+                    facts_registry.contract_address != starknet::contract_address_const::<0>(),
+                    'TurboSwap: Unknown chain id'
+                );
+
+                let value = 0;
+                match InternalFunctions::_property_to_uint(attestation.property) {
+                    Result::Ok(property_uint) => {
+                        let mut value = 0;
+                        if (property_uint == 0) {
+                            value = facts_registry
+                                .get_account_field(
+                                    *attestation.account,
+                                    *attestation.block_number,
+                                    AccountField::Nonce
+                                );
+                        } else if (property_uint == 1) {
+                            value = facts_registry
+                                .get_account_field(
+                                    *attestation.account,
+                                    *attestation.block_number,
+                                    AccountField::Balance
+                                );
+                        } else if (property_uint == 2) {
+                            value = facts_registry
+                                .get_account_field(
+                                    *attestation.account,
+                                    *attestation.block_number,
+                                    AccountField::StorageHash
+                                );
+                        } else if (property_uint == 3) {
+                            value = facts_registry
+                                .get_account_field(
+                                    *attestation.account,
+                                    *attestation.block_number,
+                                    AccountField::CodeHash
+                                );
+                        } else {
+                            assert(false, 'Unexpected property')
+                        }
+
+                        self._accounts.write((*attestation.chain_id, *attestation.block_number, *attestation.account, property_uint), value);
+                    },
+                    Result::Err(_) => {
+                        assert(false, 'Failed to get enum');
+                    }
+                };
+            }
+        }
+
+        fn clear_multiple_accounts(
+            ref self: ContractState, attestations: Span<AccountAttestation>
+        ) {
+            assert(
+                get_caller_address() == InternalFunctions::_swap_fullfillment_assignee(ref self),
+                'TurboSwap: Winner-only.'
+            );
+
+            let mut i: usize = 0;
+            loop {
+                if i >= attestations.len() {
+                    break;
+                }
+                let attestation = attestations.at(i);
+                match InternalFunctions::_property_to_uint(attestation.property) {
+                    Result::Ok(property_uint) => {
+                        self
+                            ._storageSlots
+                            .write(
+                                (
+                                    *attestation.chain_id,
+                                    *attestation.block_number,
+                                    *attestation.account,
+                                    property_uint
+                                ),
+                                0
+                            );
+                    },
+                    Result::Err(_) => {
+                        assert(false, 'Failed to get enum');
+                    }
+                };
+            }
+        }
     }
 
 
@@ -307,16 +450,28 @@ mod TurboSwap {
             IHeadersStoreDispatcher { contract_address: self.headers_processors.read(chain_id) }
         }
 
-        fn _enum_to_uint(enum_value: @HeaderProperty) -> Result<u64, felt252> {
+        fn _property_to_uint(enum_value: @Property) -> Result<u256, felt252> {
             match enum_value {
-                HeaderProperty::TIMESTAMP => Result::Ok(0),
-                HeaderProperty::STATE_ROOT => Result::Ok(1),
-                HeaderProperty::RECEIPTS_ROOT => Result::Ok(2),
-                HeaderProperty::TRANSACTIONS_ROOT => Result::Ok(3),
-                HeaderProperty::GAS_USED => Result::Ok(4),
-                HeaderProperty::BASE_FEE_PER_GAS => Result::Ok(5),
-                HeaderProperty::PARENT_HASH => Result::Ok(6),
-                HeaderProperty::MIX_HASH => Result::Ok(7),
+                Property::Account(v) => {
+                    match v {
+                        AccountProperty::NONCE => Result::Ok(0),
+                        AccountProperty::BALANCE => Result::Ok(1),
+                        AccountProperty::STORAGE_HASH => Result::Ok(2),
+                        AccountProperty::CODE_HASH => Result::Ok(3)
+                    }
+                },
+                Property::Header(v) => {
+                    match v {
+                        HeaderProperty::TIMESTAMP => Result::Ok(0),
+                        HeaderProperty::STATE_ROOT => Result::Ok(1),
+                        HeaderProperty::RECEIPTS_ROOT => Result::Ok(2),
+                        HeaderProperty::TRANSACTIONS_ROOT => Result::Ok(3),
+                        HeaderProperty::GAS_USED => Result::Ok(4),
+                        HeaderProperty::BASE_FEE_PER_GAS => Result::Ok(5),
+                        HeaderProperty::PARENT_HASH => Result::Ok(6),
+                        HeaderProperty::MIX_HASH => Result::Ok(7),
+                    }
+                },
             }
         }
     }
