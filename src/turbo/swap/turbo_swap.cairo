@@ -179,7 +179,7 @@ mod TurboSwap {
                                     RLPItemWord64::List(rlp_data_list) => {
                                         assert(
                                             rlp_data_list.at(8).len() == 1,
-                                            'Block number does not fit'
+                                            'Block number does not fit' // TODO improve msg
                                         );
                                         let block_number: u256 = rlp_data_list
                                             .at(8)
@@ -206,7 +206,7 @@ mod TurboSwap {
                                                         );
                                                 },
                                                 Result::Err(_) => {
-                                                    assert(false, 'Failed to get enum');
+                                                    assert(false, 'ERR_ENUM_UINT_CONV');
                                                 }
                                             };
                                         }
@@ -251,7 +251,7 @@ mod TurboSwap {
                                 .write((*reset.chain_id, *reset.block_number, property_uint), 0);
                         },
                         Result::Err(_) => {
-                            assert(false, 'Failed to get enum');
+                            assert(false, 'ERR_ENUM_UINT_CONV');
                         }
                     };
                 // TODO pay out fees
@@ -326,6 +326,7 @@ mod TurboSwap {
                         ),
                         0
                     );
+            // TODO pay out fees
             }
         }
 
@@ -384,13 +385,23 @@ mod TurboSwap {
                                     AccountField::CodeHash
                                 );
                         } else {
-                            assert(false, 'Unexpected property')
+                            assert(false, 'TurboSwap: Unknown property')
                         }
 
-                        self._accounts.write((*attestation.chain_id, *attestation.block_number, *attestation.account, property_uint), value);
+                        self
+                            ._accounts
+                            .write(
+                                (
+                                    *attestation.chain_id,
+                                    *attestation.block_number,
+                                    *attestation.account,
+                                    property_uint
+                                ),
+                                value
+                            );
                     },
                     Result::Err(_) => {
-                        assert(false, 'Failed to get enum');
+                        assert(false, 'ERR_ENUM_UINT_CONV');
                     }
                 };
             }
@@ -423,9 +434,10 @@ mod TurboSwap {
                                 ),
                                 0
                             );
+                    // TODO pay out fees
                     },
                     Result::Err(_) => {
-                        assert(false, 'Failed to get enum');
+                        assert(false, 'ERR_ENUM_UINT_CONV');
                     }
                 };
             }
