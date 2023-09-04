@@ -5,71 +5,94 @@ mod binary_search {
     use traits::{Into, TryInto, PartialOrd};
     use debug::PrintTrait;
 
-    fn binary_search(arr: Span<u256>, x: u256, get_closest: Option<bool>) -> Option<u256> {
-        let arr_len: u256 = arr.len().into();
-        if arr_len == 0 {
-            return Option::None(());
-        }
-
-        let mut low: u256 = 0;
-        let mut high: u256 = arr_len - 1;
-
-        let result = loop {
-            if low > high {
-                break Option::None(());
+    fn custom_binary_search(arr: Span<u256>, x: u256) -> Option<u256> {
+        let mut left: u256 = 0;
+        let mut right: u256 = arr.len().into();
+        loop {
+            if left >= right {
+                break;
             }
 
-            let mid: u256 = (low + high) / 2;
+            let mid: u256 = (left + right) / 2;
             let mid_val: u256 = *arr.at(mid.try_into().unwrap());
-            if mid_val == x {
-                break Option::Some(mid);
-            }
-            if mid_val < x {
-                low = mid + 1;
+            if x >= mid_val {
+                left = mid + 1;
             } else {
-                if mid == 0 {
-                    break Option::None(());
-                }
-                high = mid - 1;
+                right = mid;
             }
             continue;
         };
-
-        match result {
-            Option::Some(_) => result,
-            Option::None(_) => {
-                if get_closest.unwrap() == true {
-                    closest_from_x(arr, low, high, x)
-                } else {
-                    result
-                }
-            }
+        if left == 0 {
+            return Option::None(());
         }
+        return Option::Some(left - 1);
     }
 
-    fn closest_from_x(arr: Span<u256>, low: u256, high: u256, x: u256) -> Option<u256> {
-        let arr_len: u256 = arr.len().into();
-        if low >= arr_len {
-            return Option::Some(high);
-        }
-        if high < 0 {
-            return Option::Some(low);
-        }
-        let low_val: u256 = *arr.at(low.try_into().unwrap());
-        let high_val: u256 = *arr.at(high.try_into().unwrap());
+    // fn binary_search(arr: Span<u256>, x: u256, get_closest: Option<bool>) -> Option<u256> {
+    //     let arr_len: u256 = arr.len().into();
+    //     if arr_len == 0 {
+    //         return Option::None(());
+    //     }
 
-        if low_val <= x && high_val <= x {
-            if low_val > high_val {
-                return Option::Some(low);
-            }
-            return Option::Some(high);
-        }
+    //     let mut low: u256 = 0;
+    //     let mut high: u256 = arr_len - 1;
 
-        if high_val <= x {
-            return Option::Some(high);
-        }
-        return Option::Some(low);
-    }
+    //     let result = loop {
+    //         if low > high {
+    //             break Option::None(());
+    //         }
+
+    //         let mid: u256 = (low + high) / 2;
+    //         let mid_val: u256 = *arr.at(mid.try_into().unwrap());
+    //         if mid_val == x {
+    //             break Option::Some(mid);
+    //         }
+    //         if mid_val < x {
+    //             low = mid + 1;
+    //         } else {
+    //             if mid == 0 {
+    //                 break Option::None(());
+    //             }
+    //             high = mid - 1;
+    //         }
+    //         continue;
+    //     };
+
+    //     match result {
+    //         Option::Some(_) => result,
+    //         Option::None(_) => {
+    //             if get_closest.unwrap() == true {
+    //                 closest_from_x(arr, low, high, x)
+    //             } else {
+    //                 result
+    //             }
+    //         }
+    //     }
+    // }
+
+    // fn closest_from_x(arr: Span<u256>, low: u256, high: u256, x: u256) -> Option<u256> {
+    //     let arr_len: u256 = arr.len().into();
+    //     if low >= arr_len {
+    //         return Option::Some(high);
+    //     }
+    //     if high < 0 {
+    //         return Option::Some(low);
+    //     }
+    //     let low_val: u256 = *arr.at(low.try_into().unwrap());
+    //     let high_val: u256 = *arr.at(high.try_into().unwrap());
+
+    //     if low_val <= x && high_val <= x {
+    //         if low_val > high_val {
+    //             return Option::Some(low);
+    //         }
+    //         return Option::Some(high);
+    //     }
+
+    //     if high_val <= x {
+    //         return Option::Some(high);
+    //     }
+    //     return Option::Some(low);
+    // }
 
     #[available_gas(9999999)]
     #[test]
@@ -77,8 +100,7 @@ mod binary_search {
         let mut arr = ArrayTrait::new();
         let arr_span = arr.span();
 
-        assert(binary_search(arr_span, 43, Option::Some(false)).is_none(), 'Unexpected result');
-        assert(binary_search(arr_span, 43, Option::Some(true)).is_none(), 'Unexpected result');
+        assert(custom_binary_search(arr_span, 43).is_none(), 'Unexpected result');
     }
 
     #[available_gas(9999999)]
@@ -88,13 +110,8 @@ mod binary_search {
         arr.append(42);
 
         let arr_span = arr.span();
-
-        // Exact match -> index retrieval:
-        assert(binary_search(arr_span, 42, Option::Some(false)).unwrap() == 0, 'Unexpected result');
-        assert(binary_search(arr_span, 43, Option::Some(false)).is_none(), 'Unexpected result');
-
-        // Closest to x -> index retrieval:
-        assert(binary_search(arr_span, 43, Option::Some(true)).unwrap() == 0, 'Unexpected result');
+        assert(custom_binary_search(arr_span, 42).unwrap() == 0, 'Unexpected result');
+        assert(custom_binary_search(arr_span, 43).unwrap() == 0, 'Unexpected result');
     }
 
     #[available_gas(9999999)]
@@ -108,33 +125,13 @@ mod binary_search {
         arr.append(5);
 
         let arr_span = arr.span();
-
-        // Exact match -> index retrieval:
-        assert(
-            binary_search(arr_span, 1, Option::Some(false)).unwrap() == 0, 'Unexpected result'
-        );
-        assert(
-            binary_search(arr_span, 2, Option::Some(false)).unwrap() == 1, 'Unexpected result'
-        );
-        assert(
-            binary_search(arr_span, 3, Option::Some(false)).unwrap() == 2, 'Unexpected result'
-        );
-        assert(
-            binary_search(arr_span, 4, Option::Some(false)).unwrap() == 3, 'Unexpected result'
-        );
-        assert(
-            binary_search(arr_span, 5, Option::Some(false)).unwrap() == 4, 'Unexpected result'
-        );
-        assert(binary_search(arr_span, 6, Option::Some(false)).is_none(), 'Unexpected result');
-
-        // Closest to x -> index retrieval:
-        assert(binary_search(arr_span, 1, Option::Some(true)).unwrap() == 0, 'Unexpected result');
-        assert(binary_search(arr_span, 2, Option::Some(true)).unwrap() == 1, 'Unexpected result');
-        assert(binary_search(arr_span, 3, Option::Some(true)).unwrap() == 2, 'Unexpected result');
-        assert(binary_search(arr_span, 4, Option::Some(true)).unwrap() == 3, 'Unexpected result');
-        assert(binary_search(arr_span, 5, Option::Some(true)).unwrap() == 4, 'Unexpected result');
-        assert(binary_search(arr_span, 6, Option::Some(true)).unwrap() == 4, 'Unexpected result');
-        assert(binary_search(arr_span, 0, Option::Some(true)).unwrap() == 0, 'Unexpected result');
+        assert(custom_binary_search(arr_span, 0).is_none(), 'Unexpected result *');
+        assert(custom_binary_search(arr_span, 1).unwrap() == 0, 'Unexpected result A');
+        assert(custom_binary_search(arr_span, 2).unwrap() == 1, 'Unexpected result B');
+        assert(custom_binary_search(arr_span, 3).unwrap() == 2, 'Unexpected result C');
+        assert(custom_binary_search(arr_span, 4).unwrap() == 3, 'Unexpected result D');
+        assert(custom_binary_search(arr_span, 5).unwrap() == 4, 'Unexpected result E');
+        assert(custom_binary_search(arr_span, 6).unwrap() == 4, 'Unexpected result F');
     }
 
     #[available_gas(9999999)]
@@ -149,27 +146,27 @@ mod binary_search {
         let arr_span = arr.span();
 
         // Exact match for array with gaps
-        assert(binary_search(arr_span, 2, Option::Some(false)).is_none(), 'Unexpected result 1');
-        assert(binary_search(arr_span, 3, Option::Some(false)).unwrap() == 0, 'Unexpected result 2');
-        assert(binary_search(arr_span, 4, Option::Some(false)).is_none(), 'Unexpected result 3');
-        assert(binary_search(arr_span, 7, Option::Some(false)).is_none(), 'Unexpected result 4');
-        assert(binary_search(arr_span, 8, Option::Some(false)).unwrap() == 1, 'Unexpected result 5');
-        assert(binary_search(arr_span, 9, Option::Some(false)).unwrap() == 2, 'Unexpected result 6');
-        assert(binary_search(arr_span, 10, Option::Some(false)).is_none(), 'Unexpected result 7');
-        assert(binary_search(arr_span, 13, Option::Some(false)).is_none(), 'Unexpected result 8');
-        assert(binary_search(arr_span, 14, Option::Some(false)).unwrap() == 3, 'Unexpected result 9');
-        assert(binary_search(arr_span, 15, Option::Some(false)).is_none(), 'Unexpected result 10');
+        assert(custom_binary_search(arr_span, 2).is_none(), 'Unexpected result 1');
+        assert(custom_binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result 2');
+        assert(custom_binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result 3');
+        assert(custom_binary_search(arr_span, 7).unwrap() == 0, 'Unexpected result 4');
+        assert(custom_binary_search(arr_span, 8).unwrap() == 1, 'Unexpected result 5');
+        assert(custom_binary_search(arr_span, 9).unwrap() == 2, 'Unexpected result 6');
+        assert(custom_binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result 7');
+        assert(custom_binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result 8');
+        assert(custom_binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result 9');
+        assert(custom_binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result 10');
 
         // Closest to x
-        assert(binary_search(arr_span, 2, Option::Some(true)).unwrap() == 0, 'Unexpected result a');
-        assert(binary_search(arr_span, 3, Option::Some(true)).unwrap() == 0, 'Unexpected result b');
-        assert(binary_search(arr_span, 4, Option::Some(true)).unwrap() == 1, 'Unexpected result c');
-        assert(binary_search(arr_span, 7, Option::Some(true)).unwrap() == 1, 'Unexpected result');
-        assert(binary_search(arr_span, 8, Option::Some(true)).unwrap() == 1, 'Unexpected result');
-        assert(binary_search(arr_span, 9, Option::Some(true)).unwrap() == 2, 'Unexpected result');
-        assert(binary_search(arr_span, 10, Option::Some(true)).unwrap() == 3, 'Unexpected result');
-        assert(binary_search(arr_span, 13, Option::Some(true)).unwrap() == 3, 'Unexpected result');
-        assert(binary_search(arr_span, 14, Option::Some(true)).unwrap() == 3, 'Unexpected result');
-        assert(binary_search(arr_span, 15, Option::Some(true)).unwrap() == 3, 'Unexpected result');
+        assert(custom_binary_search(arr_span, 2).is_none(), 'Unexpected result a');
+        assert(custom_binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result b');
+        assert(custom_binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result c');
+        assert(custom_binary_search(arr_span, 7).unwrap() == 0, 'Unexpected result d');
+        assert(custom_binary_search(arr_span, 8).unwrap() == 1, 'Unexpected result e');
+        assert(custom_binary_search(arr_span, 9).unwrap() == 2, 'Unexpected result f');
+        assert(custom_binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result g');
+        assert(custom_binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result h');
+        assert(custom_binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result i');
+        assert(custom_binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result j');
     }
 }
