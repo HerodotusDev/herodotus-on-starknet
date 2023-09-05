@@ -96,7 +96,7 @@ fn test_process_received_block() {
 }
 
 #[test]
-fn test_process_batch() {
+fn test_process_batch_form_message() {
     let (dispatcher, contract_address) = helper_create_headers_store(); 
 
     let initial_block_number = 0x820E53;

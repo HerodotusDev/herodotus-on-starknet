@@ -71,7 +71,8 @@ mod HeadersStore {
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
     use cairo_lib::hashing::keccak::KeccakTrait;
-    use cairo_lib::hashing::poseidon::PoseidonHasher;
+    use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
+    use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
     use zeroable::Zeroable;
     use array::{ArrayTrait, SpanTrait};
@@ -187,7 +188,7 @@ mod HeadersStore {
             let rlp_hash = InternalFunctions::keccak_hash_rlp_be(header_rlp);
             assert(rlp_hash == blockhash, 'Invalid header rlp');
 
-            let poseidon_hash = InternalFunctions::poseidon_hash_rlp(header_rlp);
+            let poseidon_hash = PoseidonHasherWords64::hash_words64(header_rlp);
 
             let mut mmr = self.mmr.read(mmr_id);
             mmr.append(poseidon_hash, mmr_peaks).unwrap();
@@ -213,7 +214,7 @@ mod HeadersStore {
             mmr_proof: Option<Proof>,
         ) {
             let mut mmr = self.mmr.read(mmr_id);
-            let poseidon_hash = InternalFunctions::poseidon_hash_rlp(*headers_rlp.at(0));
+            let poseidon_hash = PoseidonHasherWords64::hash_words64(*headers_rlp.at(0));
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
         
@@ -246,13 +247,11 @@ mod HeadersStore {
                     RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                     RLPItemWord64::List(l) => {
                         if i == 1 && initial_block.is_none() {
-                            // index 8
-                            // TODO convert to u256 and reverse endianness
-                            start_block = (*(*l.at(8)).at(0)).into();
+                            // reverse endianness
+                            start_block = (*l.at(8)).try_into().unwrap();
                         }
                         let words = *l.at(0);
                         assert(words.len() == 4, 'Invalid parent_hash rlp');
-                        // Convert 4 le u64 words to le u256
                         words.try_into().unwrap()
                     },
                 };
@@ -261,7 +260,7 @@ mod HeadersStore {
                 let current_hash = KeccakTrait::keccak_cairo_word64(current_rlp);
                 assert(current_hash == parent_hash, 'Invalid header rlp');
 
-                let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
+                let poseidon_hash = PoseidonHasherWords64::hash_words64(current_rlp);
 
                 let (_, p) = mmr.append(poseidon_hash, peaks).unwrap();
                 peaks = p;
@@ -390,51 +389,7 @@ mod HeadersStore {
     impl InternalFunctions of InternalFunctionsTrait {
         fn keccak_hash_rlp_be(rlp: Words64) -> u256 {
             let mut hash = KeccakTrait::keccak_cairo_word64(rlp);
-
-            // TODO move to lib
-            // Reverse endianness u256
-            let pow2_8 = 0x100;
-            let pow2_16 = 0x10000;
-            let pow2_32 = 0x100000000;
-            let pow2_64 = 0x10000000000000000;
-            let pow2_128 = 0x100000000000000000000000000000000;
-
-            // swap bytes
-            hash = ((hash & 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00) / pow2_8) |
-                   ((hash & 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF) * pow2_8);
-
-            // swap 2-byte long pairs
-            hash = ((hash & 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000) / pow2_16) |
-                   ((hash & 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF) * pow2_16);
-
-            // swap 4-byte long pairs
-            hash = ((hash & 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000) / pow2_32) |
-                   ((hash & 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF) * pow2_32);
-
-            // swap 8-byte long pairs
-            hash = ((hash & 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000) / pow2_64) |
-                   ((hash & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) * pow2_64);
-
-            // swap 16-byte long pairs
-            // Need to mask the low 128 bits to prevent overlfow when left shifting
-            (hash / pow2_128) |
-            ((hash & 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) * pow2_128)
-        }
-
-        fn poseidon_hash_rlp(rlp: Words64) -> felt252 {
-            // TODO refactor hashing logic
-            let mut rlp_felt_arr: Array<felt252> = ArrayTrait::new();
-            let mut i: usize = 0;
-            loop {
-                if i >= rlp.len() {
-                    break ();
-                }
-
-                rlp_felt_arr.append((*rlp.at(i)).into());
-                i += 1;
-            };
-            
-            PoseidonHasher::hash_many(rlp_felt_arr.span())
+            reverse_endianness_u256(hash)
         }
     }
 }

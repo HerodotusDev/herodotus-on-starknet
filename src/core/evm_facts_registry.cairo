@@ -58,10 +58,10 @@ mod EVMFactsRegistry {
     use super::AccountField;
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::data_structures::mmr::peaks::Peaks;
-    use cairo_lib::hashing::poseidon::PoseidonHasher;
+    use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
     use cairo_lib::data_structures::eth_mpt_words64::MPTWords64Trait;
     use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
-    use cairo_lib::utils::types::words64::Words64;
+    use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
     use result::ResultTrait;
     use option::OptionTrait;
     use traits::{Into, TryInto};
@@ -172,7 +172,7 @@ mod EVMFactsRegistry {
             // TODO error handling
             let value = mpt.verify(slot, slot_len, mpt_proof).unwrap();
 
-            InternalFunctions::words64_to_u256(value)
+            value.try_into().unwrap()
         }
 
         fn prove_account(
@@ -256,28 +256,6 @@ mod EVMFactsRegistry {
 
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
-        fn poseidon_hash_rlp(rlp: Words64) -> felt252 {
-            // TODO refactor hashing logic
-            let mut rlp_felt_arr: Array<felt252> = ArrayTrait::new();
-            let mut i: usize = 0;
-            loop {
-                if i >= rlp.len() {
-                    break ();
-                }
-
-                rlp_felt_arr.append((*rlp.at(i)).into());
-                i += 1;
-            };
-
-            PoseidonHasher::hash_many(rlp_felt_arr.span())
-        }
-
-        fn words64_to_u256(words64: Words64) -> u256 {
-            // TODO IMPORTANT! handle values bigger than u64
-            // TODO move to lib
-            (*words64.at(0)).into()
-        }
-
         // returns (block_number, account_fields)
         fn get_account(
             self: @ContractState,
@@ -290,7 +268,7 @@ mod EVMFactsRegistry {
             mmr_proof: Proof,
             mmr_id: usize,
         ) -> (u256, Span<u256>) {
-            let blockhash = InternalFunctions::poseidon_hash_rlp(block_header_rlp);
+            let blockhash = PoseidonHasherWords64::hash_words64(block_header_rlp);
 
             let contract_address = self.headers_store.read();
             let mmr_inclusion = IHeadersStoreDispatcher {
@@ -304,13 +282,8 @@ mod EVMFactsRegistry {
             match decoded_rlp {
                 RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItemWord64::List(l) => {
-                    // State root is the fourth element in the list
-                    // Block number is the ninth element in the list
-                    // TODO IMPORTANT! handle values bigger than u64
-                    // Write a Words64 to u256 in the lib
-                    //state_root = InternalFun*l.at(3);
-                    state_root = InternalFunctions::words64_to_u256(*l.at(3));
-                    block_number = InternalFunctions::words64_to_u256(*l.at(8));
+                    state_root = (*l.at(3)).try_into().unwrap();
+                    block_number = (*l.at(8)).try_into().unwrap();
                 },
             };
 
@@ -332,19 +305,19 @@ mod EVMFactsRegistry {
                         let field = fields.at(i);
                         match field {
                             AccountField::StorageHash(_) => {
-                                let storage_hash = InternalFunctions::words64_to_u256(*l.at(2));
+                                let storage_hash = (*l.at(2)).try_into().unwrap();
                                 account_fields.append(storage_hash);
                             },
                             AccountField::CodeHash(_) => {
-                                let code_hash = InternalFunctions::words64_to_u256(*l.at(3));
+                                let code_hash = (*l.at(3)).try_into().unwrap();
                                 account_fields.append(code_hash);
                             },
                             AccountField::Balance(_) => {
-                                let balance = InternalFunctions::words64_to_u256(*l.at(0));
+                                let balance = (*l.at(0)).try_into().unwrap();
                                 account_fields.append(balance);
                             },
                             AccountField::Nonce(_) => {
-                                let nonce = InternalFunctions::words64_to_u256(*l.at(1));
+                                let nonce = (*l.at(1)).try_into().unwrap();
                                 account_fields.append(nonce);
                             },
                         };
