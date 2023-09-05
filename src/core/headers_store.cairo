@@ -212,17 +212,26 @@ mod HeadersStore {
             mmr_index: Option<usize>,
             mmr_proof: Option<Proof>,
         ) {
-            let initial_blockhash = self.received_blocks.read(initial_block.unwrap());
-            assert(initial_blockhash != Zeroable::zero(), 'Block not received');
-            // TODO initial block can also be present in the MMR, if present, don't append
-
-            let rlp_hash = InternalFunctions::keccak_hash_rlp_be(*headers_rlp.at(0));
-            assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
-
-            let poseidon_hash = InternalFunctions::poseidon_hash_rlp(*headers_rlp.at(0));
-
             let mut mmr = self.mmr.read(mmr_id);
-            let (_, peaks) = mmr.append(poseidon_hash, mmr_peaks).unwrap();
+            let poseidon_hash = InternalFunctions::poseidon_hash_rlp(*headers_rlp.at(0));
+            let mut peaks = mmr_peaks;
+            let mut start_block = 0;
+        
+            if mmr_proof.is_some() {
+                let valid_proof = mmr.verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap()).unwrap();
+                assert(valid_proof, 'Invalid proof');
+            } else {
+                start_block = initial_block.unwrap();
+                let initial_blockhash = self.received_blocks.read(start_block);
+                assert(initial_blockhash != Zeroable::zero(), 'Block not received');
+
+                let rlp_hash = InternalFunctions::keccak_hash_rlp_be(*headers_rlp.at(0));
+                assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
+
+                let (_, p) = mmr.append(poseidon_hash, mmr_peaks).unwrap();
+                peaks = p;
+            }
+
 
             let mut i: usize = 1;
             loop {
@@ -236,6 +245,11 @@ mod HeadersStore {
                 let parent_hash: u256 = match decoded_rlp {
                     RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                     RLPItemWord64::List(l) => {
+                        if i == 1 && initial_block.is_none() {
+                            // index 8
+                            // TODO convert to u256 and reverse endianness
+                            start_block = (*(*l.at(8)).at(0)).into();
+                        }
                         let words = *l.at(0);
                         assert(words.len() == 4, 'Invalid parent_hash rlp');
                         // Convert 4 le u64 words to le u256
@@ -249,7 +263,8 @@ mod HeadersStore {
 
                 let poseidon_hash = InternalFunctions::poseidon_hash_rlp(current_rlp);
 
-                let (_, peaks) = mmr.append(poseidon_hash, peaks).unwrap();
+                let (_, p) = mmr.append(poseidon_hash, peaks).unwrap();
+                peaks = p;
 
                 i += 1;
             };
@@ -258,8 +273,8 @@ mod HeadersStore {
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
             self.emit(Event::ProcessedBatch(ProcessedBatch {
-                block_start: initial_block.unwrap(),
-                block_end: initial_block.unwrap() - headers_rlp.len().into() + 1,
+                block_start: start_block,
+                block_end: start_block - headers_rlp.len().into() + 1,
                 new_root: mmr.root,
                 new_size: mmr.last_pos,
                 mmr_id
