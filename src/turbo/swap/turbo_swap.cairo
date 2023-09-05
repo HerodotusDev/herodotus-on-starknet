@@ -16,6 +16,7 @@ trait ITurboSwap<TContractState> {
     fn clear_multiple_accounts(
         ref self: TContractState, attestations: Span<TurboSwap::AccountAttestation>
     );
+    fn upgrade(ref self: TContractState, impl_hash: starknet::class_hash::ClassHash);
 }
 
 
@@ -24,7 +25,7 @@ mod TurboSwap {
     use array::{ArrayTrait, SpanTrait};
     use poseidon::poseidon_hash_span;
     use traits::Into;
-    use starknet::{ContractAddress, SyscallResult, get_caller_address};
+    use starknet::{ContractAddress, SyscallResultTrait, get_caller_address, class_hash::ClassHash};
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use herodotus_eth_starknet::turbo::proving_slot_assignment::turbo_auctioning_system::{
         ITurboAuctioningSystemDispatcher, ITurboAuctioningSystemDispatcherTrait
@@ -38,14 +39,13 @@ mod TurboSwap {
     use cairo_lib::utils::types::words64::{Words64, Words64Trait};
     use cairo_lib::encoding::rlp_word64::{rlp_decode_word64, RLPItemWord64};
 
-
     #[storage]
     struct Storage {
         facts_registries: LegacyMap<u256, ContractAddress>,
         headers_processors: LegacyMap<u256, ContractAddress>,
         auctioning_system: ContractAddress,
         _headers: LegacyMap<(u256, u256, u256), u256>,
-        _accounts: LegacyMap<(u256, u256, felt, u256), u256>,
+        _accounts: LegacyMap<(u256, u256, felt252, u256), u256>,
         _storageSlots: LegacyMap::<(u256, u256, felt252, u256), u256>
     }
 
@@ -113,6 +113,18 @@ mod TurboSwap {
         account: felt252,
         block_number: u256,
         property: Property
+    }
+
+
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    enum Event {
+        Upgraded: Upgraded
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct Upgraded {
+        implementation: ClassHash
     }
 
 
@@ -441,6 +453,13 @@ mod TurboSwap {
                     }
                 };
             }
+        }
+
+
+        fn upgrade(ref self: ContractState, impl_hash: ClassHash) {
+            assert(!impl_hash.is_zero(), 'Class hash cannot be zero');
+            starknet::replace_class_syscall(impl_hash).unwrap_syscall();
+            self.emit(Event::Upgraded(Upgraded { implementation: impl_hash }))
         }
     }
 
