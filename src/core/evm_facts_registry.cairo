@@ -24,7 +24,7 @@ trait IEVMFactsRegistry<TContractState> {
         self: @TContractState,
         fields: Span<AccountField>,
         block_header_rlp: Words64,
-        account: Words64,
+        account: felt252,
         mpt_proof: Span<Words64>,
         mmr_index: usize,
         mmr_peaks: Peaks,
@@ -32,14 +32,14 @@ trait IEVMFactsRegistry<TContractState> {
         mmr_id: usize,
     ) -> Span<u256>;
     fn get_storage(
-        self: @TContractState, block: u256, account: felt252, slot: Words64, mpt_proof: Span<Words64>
+        self: @TContractState, block: u256, account: felt252, slot: u256, slot_len: usize, mpt_proof: Span<Words64>
     ) -> u256;
 
     fn prove_account(
         ref self: TContractState,
         fields: Span<AccountField>,
         block_header_rlp: Words64,
-        account: Words64,
+        account: felt252,
         mpt_proof: Span<Words64>,
         mmr_index: usize,
         mmr_peaks: Peaks,
@@ -47,7 +47,7 @@ trait IEVMFactsRegistry<TContractState> {
         mmr_id: usize,
     );
     fn prove_storage(
-        ref self: TContractState, block: u256, account: felt252, slot: Words64, mpt_proof: Span<Words64>
+        ref self: TContractState, block: u256, account: felt252, slot: u256, slot_len: usize, mpt_proof: Span<Words64>
     );
 }
 
@@ -135,7 +135,7 @@ mod EVMFactsRegistry {
             self: @ContractState,
             fields: Span<AccountField>,
             block_header_rlp: Words64,
-            account: Words64,
+            account: felt252,
             mpt_proof: Span<Words64>,
             mmr_index: usize,
             mmr_peaks: Peaks,
@@ -161,7 +161,8 @@ mod EVMFactsRegistry {
             self: @ContractState,
             block: u256,
             account: felt252,
-            slot: Words64,
+            slot: u256,
+            slot_len: usize,
             mpt_proof: Span<Words64>
         ) -> u256 {
             let storage_hash = self.storage_hash.read((account, block));
@@ -169,7 +170,7 @@ mod EVMFactsRegistry {
 
             let mpt = MPTWords64Trait::new(storage_hash);
             // TODO error handling
-            let value = mpt.verify(slot, mpt_proof).unwrap();
+            let value = mpt.verify(slot, slot_len, mpt_proof).unwrap();
 
             InternalFunctions::words64_to_u256(value)
         }
@@ -178,7 +179,7 @@ mod EVMFactsRegistry {
             ref self: ContractState,
             fields: Span<AccountField>,
             block_header_rlp: Words64,
-            account: Words64,
+            account: felt252,
             mpt_proof: Span<Words64>,
             mmr_index: usize,
             mmr_peaks: Peaks,
@@ -197,9 +198,6 @@ mod EVMFactsRegistry {
                 mmr_id
             );
 
-            // TODO IMPORTANT! handle values bigger than u64
-            let account_felt252: felt252 = (*account.at(0)).into();
-
             let mut i: usize = 0;
             loop {
                 if i == field_values.len() {
@@ -211,16 +209,16 @@ mod EVMFactsRegistry {
 
                 match field {
                     AccountField::StorageHash(_) => {
-                        self.storage_hash.write((account_felt252, block), value);
+                        self.storage_hash.write((account, block), value);
                     },
                     AccountField::CodeHash(_) => {
-                        self.code_hash.write((account_felt252, block), value);
+                        self.code_hash.write((account, block), value);
                     },
                     AccountField::Balance(_) => {
-                        self.balance.write((account_felt252, block), value);
+                        self.balance.write((account, block), value);
                     },
                     AccountField::Nonce(_) => {
-                        self.nonce.write((account_felt252, block), value);
+                        self.nonce.write((account, block), value);
                     }
                 };
 
@@ -230,7 +228,7 @@ mod EVMFactsRegistry {
             self
                 .emit(
                     Event::AccountProven(
-                        AccountProven { account: account_felt252, block, fields }
+                        AccountProven { account, block, fields }
                     )
                 );
         }
@@ -239,19 +237,18 @@ mod EVMFactsRegistry {
             ref self: ContractState,
             block: u256,
             account: felt252,
-            slot: Words64,
+            slot: u256,
+            slot_len: usize,
             mpt_proof: Span<Words64>
         ) {
 
-            let value = EVMFactsRegistry::get_storage(@self, block, account, slot, mpt_proof);
-            let slot_u256 = InternalFunctions::words64_to_u256(slot);
-
-            self.slot_values.write((account, block, slot_u256), value);
+            let value = EVMFactsRegistry::get_storage(@self, block, account, slot, slot_len, mpt_proof);
+            self.slot_values.write((account, block, slot), value);
 
             self
                 .emit(
                     Event::StorageProven(
-                        StorageProven { account, block, slot: slot_u256, value: value }
+                        StorageProven { account, block, slot, value: value }
                     )
                 );
         }
@@ -286,7 +283,7 @@ mod EVMFactsRegistry {
             self: @ContractState,
             fields: Span<AccountField>,
             block_header_rlp: Words64,
-            account: Words64,
+            account: felt252,
             mpt_proof: Span<Words64>,
             mmr_index: usize,
             mmr_peaks: Peaks,
@@ -319,17 +316,14 @@ mod EVMFactsRegistry {
 
             let mpt = MPTWords64Trait::new(state_root);
             // TODO error handling
-            let rlp_account = mpt.verify(account, mpt_proof).unwrap();
+            let rlp_account = mpt.verify(account.into(), 32, mpt_proof).unwrap();
 
             let (decoded_account, _) = rlp_decode_word64(rlp_account).unwrap();
-            let mut account_felt252 = 0;
             let mut account_fields = ArrayTrait::new();
             match decoded_account {
                 RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid account rlp'),
                 RLPItemWord64::List(l) => {
                     let mut i: usize = 0;
-                    // TODO IMPORTANT! handle values bigger than u64
-                    let account_felt252: felt252 = (*account.at(0)).into();
                     loop {
                         if i == fields.len() {
                             break ();
