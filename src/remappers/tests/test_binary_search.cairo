@@ -3,9 +3,8 @@ mod binary_search {
     use option::OptionTrait;
     use core::array::{ArrayTrait, SpanTrait};
     use traits::{Into, TryInto, PartialOrd};
-    use debug::PrintTrait;
 
-    fn custom_binary_search(arr: Span<u256>, x: u256) -> Option<u256> {
+    fn binary_search(arr: Span<u256>, x: u256) -> Option<u256> {
         let mut left: u256 = 0;
         let mut right: u256 = arr.len().into();
         loop {
@@ -34,7 +33,7 @@ mod binary_search {
         let mut arr = ArrayTrait::new();
         let arr_span = arr.span();
 
-        assert(custom_binary_search(arr_span, 43).is_none(), 'Unexpected result');
+        assert(binary_search(arr_span, 43).is_none(), 'Unexpected result');
     }
 
     #[available_gas(9999999)]
@@ -44,13 +43,11 @@ mod binary_search {
         arr.append(42);
 
         let arr_span = arr.span();
-        assert(custom_binary_search(arr_span, 42).unwrap() == 0, 'Unexpected result'); // Present
+        assert(binary_search(arr_span, 42).unwrap() == 0, 'Unexpected result'); // Present
         assert(
-            custom_binary_search(arr_span, 43).unwrap() == 0, 'Unexpected result'
+            binary_search(arr_span, 43).unwrap() == 0, 'Unexpected result'
         ); // Not present, larger
-        assert(
-            custom_binary_search(arr_span, 41).is_none(), 'Unexpected result'
-        ); // Not present, smaller
+        assert(binary_search(arr_span, 41).is_none(), 'Unexpected result'); // Not present, smaller
     }
 
     #[available_gas(9999999)]
@@ -64,13 +61,13 @@ mod binary_search {
         arr.append(5);
 
         let arr_span = arr.span();
-        assert(custom_binary_search(arr_span, 0).is_none(), 'Unexpected result');
-        assert(custom_binary_search(arr_span, 1).unwrap() == 0, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 2).unwrap() == 1, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 3).unwrap() == 2, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 4).unwrap() == 3, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 5).unwrap() == 4, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 6).unwrap() == 4, 'Unexpected result');
+        assert(binary_search(arr_span, 0).is_none(), 'Unexpected result');
+        assert(binary_search(arr_span, 1).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 2).unwrap() == 1, 'Unexpected result');
+        assert(binary_search(arr_span, 3).unwrap() == 2, 'Unexpected result');
+        assert(binary_search(arr_span, 4).unwrap() == 3, 'Unexpected result');
+        assert(binary_search(arr_span, 5).unwrap() == 4, 'Unexpected result');
+        assert(binary_search(arr_span, 6).unwrap() == 4, 'Unexpected result');
     }
 
     #[available_gas(9999999)]
@@ -85,28 +82,28 @@ mod binary_search {
         let arr_span = arr.span();
 
         // Exact match for array with gaps
-        assert(custom_binary_search(arr_span, 2).is_none(), 'Unexpected result');
-        assert(custom_binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 7).unwrap() == 0, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 8).unwrap() == 1, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 9).unwrap() == 2, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result');
+        assert(binary_search(arr_span, 2).is_none(), 'Unexpected result');
+        assert(binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 7).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 8).unwrap() == 1, 'Unexpected result');
+        assert(binary_search(arr_span, 9).unwrap() == 2, 'Unexpected result');
+        assert(binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result');
+        assert(binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result');
+        assert(binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result');
+        assert(binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result');
 
         // Closest to x
-        assert(custom_binary_search(arr_span, 2).is_none(), 'Unexpected result');
-        assert(custom_binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 7).unwrap() == 0, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 8).unwrap() == 1, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 9).unwrap() == 2, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result');
+        assert(binary_search(arr_span, 2).is_none(), 'Unexpected result');
+        assert(binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 7).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 8).unwrap() == 1, 'Unexpected result');
+        assert(binary_search(arr_span, 9).unwrap() == 2, 'Unexpected result');
+        assert(binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result');
+        assert(binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result');
+        assert(binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result');
+        assert(binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result');
     }
 
     #[available_gas(999999999999999)]
@@ -767,50 +764,41 @@ mod binary_search {
         let arr_span = arr.span();
 
         // Test for a number that is present in the array
-        assert(custom_binary_search(arr_span, 10).unwrap() == 6, 'Unexpected result');
+        assert(binary_search(arr_span, 10).unwrap() == 6, 'Unexpected result');
 
         // Test for a number that is between two elements, expecting the index of the number on the left
-        assert(custom_binary_search(arr_span, 8).unwrap() == 4, 'Unexpected result');
+        assert(binary_search(arr_span, 8).unwrap() == 4, 'Unexpected result');
 
         // Test for a number smaller than the smallest number in the array
-        assert(custom_binary_search(arr_span, 2).is_none(), 'Unexpected result');
+        assert(binary_search(arr_span, 2).is_none(), 'Unexpected result');
 
         // Test for a number larger than the largest number in the array
-        assert(
-            custom_binary_search(arr_span, 1000).unwrap() == arr.len().into() - 1,
-            'Unexpected result'
-        );
+        assert(binary_search(arr_span, 1000).unwrap() == arr.len().into() - 1, 'Unexpected result');
 
         // Test for a number that's close to the middle
-        assert(custom_binary_search(arr_span, 500).unwrap() == 317, 'Unexpected result');
+        assert(binary_search(arr_span, 500).unwrap() == 317, 'Unexpected result');
 
         // Test for the first number in the array
-        assert(custom_binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
+        assert(binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
 
         // Test for the last number in the array
-        assert(
-            custom_binary_search(arr_span, 999).unwrap() == arr.len().into() - 1,
-            'Unexpected result'
-        );
+        assert(binary_search(arr_span, 999).unwrap() == arr.len().into() - 1, 'Unexpected result');
 
         // Test for boundary cases
+        assert(binary_search(arr_span, 4).unwrap() == 1, 'Unexpected result'); // Second smallest
         assert(
-            custom_binary_search(arr_span, 4).unwrap() == 1, 'Unexpected result'
-        ); // Second smallest
-        assert(
-            custom_binary_search(arr_span, 998).unwrap() == arr.len().into() - 2,
-            'Unexpected result'
+            binary_search(arr_span, 998).unwrap() == arr.len().into() - 2, 'Unexpected result'
         ); // Second largest
 
         let middle_index: u32 = arr.len() / 2;
         assert(
-            custom_binary_search(arr_span, *arr.at(middle_index)).unwrap() == middle_index.into(),
+            binary_search(arr_span, *arr.at(middle_index)).unwrap() == middle_index.into(),
             'Unexpected result'
         ); // Middle of the array
 
         // Test arbitrary cases
-        assert(custom_binary_search(arr_span, 16).unwrap() == 10, 'Unexpected result');
-        assert(custom_binary_search(arr_span, 200).unwrap() == 125, 'Unexpected result');
+        assert(binary_search(arr_span, 16).unwrap() == 10, 'Unexpected result');
+        assert(binary_search(arr_span, 200).unwrap() == 125, 'Unexpected result');
 
         // Test all present elements
         let mut idx: u32 = 0;
@@ -820,8 +808,7 @@ mod binary_search {
             }
 
             assert(
-                custom_binary_search(arr_span, *arr.at(idx)).unwrap() == idx.into(),
-                'Unexpected result'
+                binary_search(arr_span, *arr.at(idx)).unwrap() == idx.into(), 'Unexpected result'
             );
 
             idx += 1;
