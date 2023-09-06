@@ -17,6 +17,9 @@ trait ITurboSwap<TContractState> {
         ref self: TContractState, attestations: Span<TurboSwap::AccountAttestation>
     );
     fn upgrade(ref self: TContractState, impl_hash: starknet::class_hash::ClassHash);
+    fn storage_slots(ref self: TContractState, chain_id: u256, block_number: u256, account: felt252, slot: u256)  -> u256;
+    fn accounts(ref self: TContractState, chain_id: u256, block_number: u256, property: u256) -> u256;
+    fn headers(ref self: TContractState, chain_id: u256, block_number: u256, property: u256) -> u256;
 }
 
 
@@ -460,6 +463,24 @@ mod TurboSwap {
             assert(!impl_hash.is_zero(), 'Class hash cannot be zero');
             starknet::replace_class_syscall(impl_hash).unwrap_syscall();
             self.emit(Event::Upgraded(Upgraded { implementation: impl_hash }))
+        }
+
+        fn storage_slots(ref self: ContractState, chain_id: u256, block_number: u256, account: felt252, slot: u256)  -> u256 {
+            let value = self._storage_slots.read((chain_id, block_number, account, slot));
+            assert(value != 0, 'TurboSwap: Storage slot not set');
+            value
+        }
+
+        fn accounts(ref self: ContractState, chain_id: u256, block_number: u256, account: felt252, property: u256) -> u256 {
+            let value = self._accounts.read((chain_id, block_number, account, property));
+            assert(value != 0, 'TurboSwap: Account property not set');
+            value
+        }
+
+        fn headers(ref self: ContractState, chain_id: u256, block_number: u256, account: felt252, property: u256) -> u256 {
+            let value = self._headers.read((chain_id, block_number, account, property));
+            assert(value != 0, 'TurboSwap: Account property not set');
+            value
         }
     }
 
