@@ -22,22 +22,6 @@ trait IHeadersStore<TContractState> {
 
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
 
-    fn process_received_block(
-        ref self: TContractState,
-        block_number: u256,
-        header_rlp: Bytes,
-        mmr_peaks: Peaks,
-        mmr_id: usize,
-    );
-
-    fn process_chunk(
-        ref self: TContractState,
-        initial_block: u256,
-        headers_rlp: Span<Bytes>,
-        mmr_peaks: Peaks,
-        mmr_id: usize,
-    );
-    
     fn verify_mmr_inclusion(
         self: @TContractState,
         index: usize,
@@ -57,7 +41,6 @@ trait IHeadersStore<TContractState> {
         last_pos: usize,
     ) -> bool;
 
-    fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
     fn process_received_block(
         ref self: TContractState,
         block_number: u256, 
@@ -65,6 +48,7 @@ trait IHeadersStore<TContractState> {
         mmr_peaks: Peaks,
         mmr_id: usize,
     );
+
     fn process_batch(
         ref self: TContractState,
         headers_rlp: Span<Words64>,
@@ -74,7 +58,6 @@ trait IHeadersStore<TContractState> {
         mmr_index: Option<usize>,
         mmr_proof: Option<Proof>,
     );
-
 
     fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
 
@@ -313,18 +296,6 @@ mod HeadersStore {
                 new_root: mmr.root,
                 new_size: mmr.last_pos,
                 mmr_id
-            }));
-        }
-
-        fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
-            let caller = get_caller_address();
-            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
-
-            self.received_blocks.write(block_number, blockhash);
-
-            self.emit(Event::HashReceived(HashReceived {
-                block_number,
-                blockhash
             }));
         }
 
