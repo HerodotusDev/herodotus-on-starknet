@@ -83,7 +83,7 @@ mod HeadersStore {
     use cairo_lib::hashing::keccak::KeccakTrait;
     use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
-    use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
+    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use zeroable::Zeroable;
     use array::{ArrayTrait, SpanTrait};
     use traits::{Into, TryInto};
@@ -265,10 +265,10 @@ mod HeadersStore {
 
                 let child_rlp = *headers_rlp.at(i - 1);
                 // TODO error handling
-                let (decoded_rlp, _) = rlp_decode_word64(child_rlp).unwrap();
+                let (decoded_rlp, _) = rlp_decode(child_rlp).unwrap();
                 let parent_hash: u256 = match decoded_rlp {
-                    RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-                    RLPItemWord64::List(l) => {
+                    RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                    RLPItem::List(l) => {
                         if i == 1 && initial_block.is_none() {
                             // reverse endianness
                             start_block = (*l.at(8)).try_into().unwrap();

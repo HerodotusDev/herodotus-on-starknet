@@ -69,8 +69,8 @@ mod EVMFactsRegistry {
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
-    use cairo_lib::data_structures::eth_mpt_words64::MPTWords64Trait;
-    use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
+    use cairo_lib::data_structures::eth_mpt::MPTTrait;
+    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
     use result::ResultTrait;
     use option::OptionTrait;
@@ -178,7 +178,7 @@ mod EVMFactsRegistry {
             let storage_hash = self.storage_hash.read((account, block));
             assert(storage_hash != Zeroable::zero(), 'Storage hash not proven');
 
-            let mpt = MPTWords64Trait::new(storage_hash);
+            let mpt = MPTTrait::new(storage_hash);
             // TODO error handling
             let value = mpt.verify(slot, slot_len, mpt_proof).unwrap();
 
@@ -277,26 +277,26 @@ mod EVMFactsRegistry {
             }.verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id);
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
-            let (decoded_rlp, _) = rlp_decode_word64(block_header_rlp).unwrap();
+            let (decoded_rlp, _) = rlp_decode(block_header_rlp).unwrap();
             let mut state_root: u256 = 0;
             let mut block_number: u256 = 0;
             match decoded_rlp {
-                RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-                RLPItemWord64::List(l) => {
+                RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                RLPItem::List(l) => {
                     state_root = (*l.at(3)).try_into().unwrap();
                     block_number = (*l.at(8)).try_into().unwrap();
                 },
             };
 
-            let mpt = MPTWords64Trait::new(state_root);
+            let mpt = MPTTrait::new(state_root);
             // TODO error handling
             let rlp_account = mpt.verify(account.into(), 32, mpt_proof).unwrap();
 
-            let (decoded_account, _) = rlp_decode_word64(rlp_account).unwrap();
+            let (decoded_account, _) = rlp_decode(rlp_account).unwrap();
             let mut account_fields = ArrayTrait::new();
             match decoded_account {
-                RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid account rlp'),
-                RLPItemWord64::List(l) => {
+                RLPItem::Bytes(_) => panic_with_felt252('Invalid account rlp'),
+                RLPItem::List(l) => {
                     let mut i: usize = 0;
                     loop {
                         if i == fields.len() {

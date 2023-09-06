@@ -71,7 +71,7 @@ mod TimestampRemappers {
     use array::{ArrayTrait};
     use cairo_lib::hashing::poseidon::PoseidonHasher;
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
-    use cairo_lib::encoding::rlp_word64::{RLPItemWord64, rlp_decode_word64};
+    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use cairo_lib::utils::types::words64::{reverse_endianness, bytes_used};
     use clone::Clone;
     use debug::PrintTrait;
@@ -292,10 +292,10 @@ mod TimestampRemappers {
     }
 
     fn extract_header_block_number(header: Words64) -> u256 {
-        let (decoded_rlp, _) = rlp_decode_word64(header).unwrap();
+        let (decoded_rlp, _) = rlp_decode(header).unwrap();
         let block_number: u64 = match decoded_rlp {
-            RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-            RLPItemWord64::List(l) => {
+            RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+            RLPItem::List(l) => {
                 // Block number is the eight's element in the list
                 // TODO error handling
                 *(*l.at(8)).at(0)
@@ -305,10 +305,10 @@ mod TimestampRemappers {
     }
 
     fn extract_header_timestamp(header: Words64) -> u256 {
-        let (decoded_rlp, _) = rlp_decode_word64(header).unwrap();
+        let (decoded_rlp, _) = rlp_decode(header).unwrap();
         let timestamp: u64 = match decoded_rlp {
-            RLPItemWord64::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-            RLPItemWord64::List(l) => {
+            RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+            RLPItem::List(l) => {
                 // Timestamp is the eleventh's element in the list
                 // TODO error handling
                 *(*l.at(11)).at(0)
