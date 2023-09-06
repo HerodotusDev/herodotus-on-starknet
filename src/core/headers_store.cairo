@@ -17,7 +17,7 @@ trait IHeadersStore<TContractState> {
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
 
     fn get_latest_mmr_id(self: @TContractState) -> usize;
-    
+
     fn get_historical_root(self: @TContractState, mmr_id: usize, size: usize) -> felt252;
 
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
@@ -43,7 +43,7 @@ trait IHeadersStore<TContractState> {
 
     fn process_received_block(
         ref self: TContractState,
-        block_number: u256, 
+        block_number: u256,
         header_rlp: Words64,
         mmr_peaks: Peaks,
         mmr_id: usize,
@@ -54,7 +54,7 @@ trait IHeadersStore<TContractState> {
         headers_rlp: Span<Words64>,
         mmr_peaks: Peaks,
         mmr_id: usize,
-        initial_block: Option<u256>, 
+        initial_block: Option<u256>,
         mmr_index: Option<usize>,
         mmr_proof: Option<Proof>,
     );
@@ -62,8 +62,8 @@ trait IHeadersStore<TContractState> {
     fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
 
     fn create_branch_single_element(
-        ref self: TContractState, 
-        index: usize, 
+        ref self: TContractState,
+        index: usize,
         initial_poseidon_blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
@@ -92,7 +92,8 @@ mod HeadersStore {
     use clone::Clone;
     use debug::PrintTrait;
 
-    const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
+    const MMR_INITIAL_ROOT: felt252 =
+        0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
     #[storage]
     struct Storage {
@@ -180,7 +181,7 @@ mod HeadersStore {
         fn get_latest_mmr_id(self: @ContractState) -> usize {
             self.latest_mmr_id.read()
         }
-        
+
         fn get_historical_root(self: @ContractState, mmr_id: usize, size: usize) -> felt252 {
             self.mmr_history.read((mmr_id, size))
         }
@@ -196,7 +197,7 @@ mod HeadersStore {
 
         fn process_received_block(
             ref self: ContractState,
-            block_number: u256, 
+            block_number: u256,
             header_rlp: Words64,
             mmr_peaks: Peaks,
             mmr_id: usize,
@@ -215,12 +216,14 @@ mod HeadersStore {
 
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
-            self.emit(Event::ProcessedBlock(ProcessedBlock {
-                block_number,
-                new_root: mmr.root,
-                new_size: mmr.last_pos,
-                mmr_id
-            }));
+            self
+                .emit(
+                    Event::ProcessedBlock(
+                        ProcessedBlock {
+                            block_number, new_root: mmr.root, new_size: mmr.last_pos, mmr_id
+                        }
+                    )
+                );
         }
 
         fn process_batch(
@@ -228,7 +231,7 @@ mod HeadersStore {
             headers_rlp: Span<Words64>,
             mmr_peaks: Peaks,
             mmr_id: usize,
-            initial_block: Option<u256>, 
+            initial_block: Option<u256>,
             mmr_index: Option<usize>,
             mmr_proof: Option<Proof>,
         ) {
@@ -236,9 +239,11 @@ mod HeadersStore {
             let poseidon_hash = PoseidonHasherWords64::hash_words64(*headers_rlp.at(0));
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
-        
+
             if mmr_proof.is_some() {
-                let valid_proof = mmr.verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap()).unwrap();
+                let valid_proof = mmr
+                    .verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap())
+                    .unwrap();
                 assert(valid_proof, 'Invalid proof');
             } else {
                 start_block = initial_block.unwrap();
@@ -251,7 +256,6 @@ mod HeadersStore {
                 let (_, p) = mmr.append(poseidon_hash, mmr_peaks).unwrap();
                 peaks = p;
             }
-
 
             let mut i: usize = 1;
             loop {
@@ -290,13 +294,18 @@ mod HeadersStore {
             self.mmr.write(mmr_id, mmr.clone());
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
 
-            self.emit(Event::ProcessedBatch(ProcessedBatch {
-                block_start: start_block,
-                block_end: start_block - headers_rlp.len().into() + 1,
-                new_root: mmr.root,
-                new_size: mmr.last_pos,
-                mmr_id
-            }));
+            self
+                .emit(
+                    Event::ProcessedBatch(
+                        ProcessedBatch {
+                            block_start: start_block,
+                            block_end: start_block - headers_rlp.len().into() + 1,
+                            new_root: mmr.root,
+                            new_size: mmr.last_pos,
+                            mmr_id
+                        }
+                    )
+                );
         }
 
         fn verify_mmr_inclusion(
@@ -323,7 +332,7 @@ mod HeadersStore {
         ) -> bool {
             let root = self.mmr_history.read((mmr_id, last_pos));
             let mmr = MMRTrait::new(root, last_pos);
-            
+
             mmr.verify_proof(index, poseidon_blockhash, peaks, proof).unwrap()
         }
 
@@ -342,13 +351,18 @@ mod HeadersStore {
 
         fn create_branch_single_element(
             ref self: ContractState,
-            index: usize, 
+            index: usize,
             initial_poseidon_blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
             mmr_id: usize,
         ) {
-            assert(HeadersStore::verify_mmr_inclusion(@self, index, initial_poseidon_blockhash, peaks, proof, mmr_id), 'Invalid proof');
+            assert(
+                HeadersStore::verify_mmr_inclusion(
+                    @self, index, initial_poseidon_blockhash, peaks, proof, mmr_id
+                ),
+                'Invalid proof'
+            );
 
             let mut mmr: MMR = Default::default();
             mmr.append(initial_poseidon_blockhash, array![].span());
@@ -360,7 +374,7 @@ mod HeadersStore {
             self.mmr.write(latest_mmr_id, mmr);
             self.mmr_history.write((latest_mmr_id, last_pos), root);
             self.latest_mmr_id.write(latest_mmr_id);
-            
+
             // TODO review event
             self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
         }
@@ -376,11 +390,10 @@ mod HeadersStore {
             self.mmr_history.write((latest_mmr_id, last_pos), root);
             self.latest_mmr_id.write(latest_mmr_id);
 
-            self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id: latest_mmr_id,
-                root,
-                last_pos
-            }));
+            self
+                .emit(
+                    Event::BranchCreated(BranchCreated { mmr_id: latest_mmr_id, root, last_pos })
+                );
         }
     }
 

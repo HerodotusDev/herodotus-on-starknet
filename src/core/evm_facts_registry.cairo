@@ -32,7 +32,12 @@ trait IEVMFactsRegistry<TContractState> {
         mmr_id: usize,
     ) -> Span<u256>;
     fn get_storage(
-        self: @TContractState, block: u256, account: felt252, slot: u256, slot_len: usize, mpt_proof: Span<Words64>
+        self: @TContractState,
+        block: u256,
+        account: felt252,
+        slot: u256,
+        slot_len: usize,
+        mpt_proof: Span<Words64>
     ) -> u256;
 
     fn prove_account(
@@ -47,7 +52,12 @@ trait IEVMFactsRegistry<TContractState> {
         mmr_id: usize,
     );
     fn prove_storage(
-        ref self: TContractState, block: u256, account: felt252, slot: u256, slot_len: usize, mpt_proof: Span<Words64>
+        ref self: TContractState,
+        block: u256,
+        account: felt252,
+        slot: u256,
+        slot_len: usize,
+        mpt_proof: Span<Words64>
     );
 }
 
@@ -224,13 +234,8 @@ mod EVMFactsRegistry {
 
                 i += 1;
             };
-            
-            self
-                .emit(
-                    Event::AccountProven(
-                        AccountProven { account, block, fields }
-                    )
-                );
+
+            self.emit(Event::AccountProven(AccountProven { account, block, fields }));
         }
 
         fn prove_storage(
@@ -241,16 +246,12 @@ mod EVMFactsRegistry {
             slot_len: usize,
             mpt_proof: Span<Words64>
         ) {
-
-            let value = EVMFactsRegistry::get_storage(@self, block, account, slot, slot_len, mpt_proof);
+            let value = EVMFactsRegistry::get_storage(
+                @self, block, account, slot, slot_len, mpt_proof
+            );
             self.slot_values.write((account, block, slot), value);
 
-            self
-                .emit(
-                    Event::StorageProven(
-                        StorageProven { account, block, slot, value: value }
-                    )
-                );
+            self.emit(Event::StorageProven(StorageProven { account, block, slot, value: value }));
         }
     }
 

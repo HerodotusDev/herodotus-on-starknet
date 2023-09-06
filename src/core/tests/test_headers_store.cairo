@@ -1,7 +1,7 @@
-use snforge_std::{ declare, PreparedContract, deploy, start_prank, stop_prank };
+use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
 use herodotus_eth_starknet::core::headers_store::{
-    IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, 
-    IHeadersStoreSafeDispatcherTrait, IHeadersStoreSafeDispatcher
+    IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
+    IHeadersStoreSafeDispatcher
 };
 use result::ResultTrait;
 use option::OptionTrait;
@@ -12,24 +12,34 @@ use cairo_lib::utils::types::words64::Words64;
 use debug::PrintTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
-const MMR_INITIAL_ELEMENT: felt252 = 0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
+const MMR_INITIAL_ELEMENT: felt252 =
+    0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
 const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
 fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
     let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract { class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS] };
+    let prepared = PreparedContract {
+        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
+    };
     let contract_address = deploy(prepared).unwrap();
     (IHeadersStoreDispatcher { contract_address }, contract_address)
 }
 
 fn helper_create_safe_headers_store() -> (IHeadersStoreSafeDispatcher, ContractAddress) {
     let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract { class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS] };
+    let prepared = PreparedContract {
+        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
+    };
     let contract_address = deploy(prepared).unwrap();
     (IHeadersStoreSafeDispatcher { contract_address }, contract_address)
 }
 
-fn helper_receive_hash(blockhash: u256, block_number: u256, dispatcher: IHeadersStoreDispatcher, contract_address: ContractAddress) {
+fn helper_receive_hash(
+    blockhash: u256,
+    block_number: u256,
+    dispatcher: IHeadersStoreDispatcher,
+    contract_address: ContractAddress
+) {
     start_prank(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.receive_hash(blockhash, block_number);
     stop_prank(contract_address);
@@ -44,7 +54,7 @@ fn test_receive_hash_wrong_address() {
 
 #[test]
 fn test_receive_hash() {
-    let (dispatcher, contract_address) = helper_create_headers_store(); 
+    let (dispatcher, contract_address) = helper_create_headers_store();
 
     let block_number = 0x420;
     let real_block_hash = 0xabcd;
@@ -59,7 +69,7 @@ fn test_receive_hash() {
 
 #[test]
 fn test_initial_tree() {
-    let (dispatcher, contract_address) = helper_create_headers_store(); 
+    let (dispatcher, contract_address) = helper_create_headers_store();
 
     let mmr_id = 0;
 
@@ -74,7 +84,7 @@ fn test_initial_tree() {
 
 #[test]
 fn test_process_received_block() {
-    let (dispatcher, contract_address) = helper_create_headers_store(); 
+    let (dispatcher, contract_address) = helper_create_headers_store();
 
     let block_number = 0x820E53;
     // little endian block hash
@@ -84,7 +94,10 @@ fn test_process_received_block() {
     let header_rlp = *helper_get_headers_rlp().at(0);
 
     let mmr_id = 0;
-    dispatcher.process_received_block(block_number, header_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id);
+    dispatcher
+        .process_received_block(
+            block_number, header_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id
+        );
 
     let mmr = dispatcher.get_mmr(mmr_id);
     let expected_root = 0x46d870bc268ff894d760fd8b9076d6e53437f0c61b359b107fef8ec7d50f20e;
@@ -97,7 +110,7 @@ fn test_process_received_block() {
 
 #[test]
 fn test_process_batch_form_message() {
-    let (dispatcher, contract_address) = helper_create_headers_store(); 
+    let (dispatcher, contract_address) = helper_create_headers_store();
 
     let initial_block_number = 0x820E53;
     // little endian block hash
@@ -108,7 +121,15 @@ fn test_process_batch_form_message() {
     let headers_rlp = helper_get_headers_rlp();
 
     let mmr_id = 0;
-    dispatcher.process_batch(headers_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id, Option::Some(initial_block_number), Option::None(()), Option::None(()));
+    dispatcher
+        .process_batch(
+            headers_rlp,
+            array![MMR_INITIAL_ELEMENT].span(),
+            mmr_id,
+            Option::Some(initial_block_number),
+            Option::None(()),
+            Option::None(())
+        );
 
     let mmr = dispatcher.get_mmr(mmr_id);
     let expected_root = 0x210fe3c945426fcca6b555a37a8e34a0929ff2cca7a2029f854873ae2d4c77d;
@@ -187,7 +208,8 @@ fn helper_get_headers_rlp() -> Span<Words64> {
             0x0088a539c0570e57,
             0x8400000000000000,
             0xf715862b
-        ].span(),
+        ]
+            .span(),
         array![
             0x3b235465a01402f9,
             0x902698b708c727b3,
@@ -256,6 +278,8 @@ fn helper_get_headers_rlp() -> Span<Words64> {
             0x10a7133fa21e18f4,
             0x0000000000008866,
             0x6a72a02d840000,
-        ].span()
-    ].span()
+        ]
+            .span()
+    ]
+        .span()
 }
