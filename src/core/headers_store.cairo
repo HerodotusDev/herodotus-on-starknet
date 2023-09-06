@@ -117,7 +117,7 @@ mod HeadersStore {
     #[derive(Drop, starknet::Event)]
     struct HashReceived {
         block_number: u256,
-        blockhash: u256
+        blockhash: u256,
     }
 
     #[derive(Drop, starknet::Event)]

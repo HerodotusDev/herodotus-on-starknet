@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod binary_search {
     use option::OptionTrait;
     use core::array::{ArrayTrait, SpanTrait};
@@ -27,7 +26,6 @@ mod binary_search {
         return Option::Some(left - 1);
     }
 
-    #[available_gas(9999999)]
     #[test]
     fn test_binary_search_no_element() {
         let mut arr = ArrayTrait::new();
@@ -36,7 +34,6 @@ mod binary_search {
         assert(binary_search(arr_span, 43).is_none(), 'Unexpected result');
     }
 
-    #[available_gas(9999999)]
     #[test]
     fn test_binary_search_single_element() {
         let mut arr = ArrayTrait::new();
@@ -50,7 +47,6 @@ mod binary_search {
         assert(binary_search(arr_span, 41).is_none(), 'Unexpected result'); // Not present, smaller
     }
 
-    #[available_gas(9999999)]
     #[test]
     fn test_binary_search_many_elements() {
         let mut arr = ArrayTrait::new();
@@ -70,7 +66,6 @@ mod binary_search {
         assert(binary_search(arr_span, 6).unwrap() == 4, 'Unexpected result');
     }
 
-    #[available_gas(9999999)]
     #[test]
     fn text_binary_search_many_elements_with_gaps() {
         let mut arr = ArrayTrait::new();
@@ -106,7 +101,6 @@ mod binary_search {
         assert(binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result');
     }
 
-    #[available_gas(999999999999999)]
     #[test]
     fn test_binary_search_1000_elements_array() {
         let arr = array![
