@@ -7,12 +7,20 @@ use cairo_lib::data_structures::mmr::mmr::MMR;
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
     fn get_commitments_inbox(self: @TContractState) -> ContractAddress;
+
     fn get_mmr(self: @TContractState, mmr_id: usize) -> MMR;
+
     fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
+
     fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
+
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
+
     fn get_latest_mmr_id(self: @TContractState) -> usize;
+    
     fn get_historical_root(self: @TContractState, mmr_id: usize, size: usize) -> felt252;
+
+    fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
 
     fn verify_mmr_inclusion(
         self: @TContractState,
@@ -22,6 +30,7 @@ trait IHeadersStore<TContractState> {
         proof: Proof,
         mmr_id: usize,
     ) -> bool;
+
     fn verify_historical_mmr_inclusion(
         self: @TContractState,
         index: usize,
@@ -32,7 +41,6 @@ trait IHeadersStore<TContractState> {
         last_pos: usize,
     ) -> bool;
 
-    fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
     fn process_received_block(
         ref self: TContractState,
         block_number: u256, 
@@ -40,6 +48,7 @@ trait IHeadersStore<TContractState> {
         mmr_peaks: Peaks,
         mmr_id: usize,
     );
+
     fn process_batch(
         ref self: TContractState,
         headers_rlp: Span<Words64>,
@@ -50,8 +59,8 @@ trait IHeadersStore<TContractState> {
         mmr_proof: Option<Proof>,
     );
 
-
     fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
+
     fn create_branch_single_element(
         ref self: TContractState, 
         index: usize, 
@@ -60,6 +69,7 @@ trait IHeadersStore<TContractState> {
         proof: Proof,
         mmr_id: usize,
     );
+
     fn create_branch_from(ref self: TContractState, mmr_id: usize);
 }
 
@@ -170,9 +180,18 @@ mod HeadersStore {
         fn get_latest_mmr_id(self: @ContractState) -> usize {
             self.latest_mmr_id.read()
         }
-
+        
         fn get_historical_root(self: @ContractState, mmr_id: usize, size: usize) -> felt252 {
             self.mmr_history.read((mmr_id, size))
+        }
+
+        fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
+            let caller = get_caller_address();
+            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
+
+            self.received_blocks.write(block_number, blockhash);
+
+            self.emit(Event::HashReceived(HashReceived { block_number, blockhash }));
         }
 
         fn process_received_block(
@@ -280,18 +299,6 @@ mod HeadersStore {
             }));
         }
 
-        fn receive_hash(ref self: ContractState, blockhash: u256, block_number: u256) {
-            let caller = get_caller_address();
-            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
-
-            self.received_blocks.write(block_number, blockhash);
-
-            self.emit(Event::HashReceived(HashReceived {
-                block_number,
-                blockhash
-            }));
-        }
-
         fn verify_mmr_inclusion(
             self: @ContractState,
             index: usize,
@@ -301,7 +308,7 @@ mod HeadersStore {
             mmr_id: usize,
         ) -> bool {
             let mmr = self.mmr.read(mmr_id);
-            // TODO error handling
+
             mmr.verify_proof(index, poseidon_blockhash, peaks, proof).unwrap()
         }
 
@@ -314,9 +321,9 @@ mod HeadersStore {
             mmr_id: usize,
             last_pos: usize,
         ) -> bool {
-            // TODO error handling
             let root = self.mmr_history.read((mmr_id, last_pos));
             let mmr = MMRTrait::new(root, last_pos);
+            
             mmr.verify_proof(index, poseidon_blockhash, peaks, proof).unwrap()
         }
 
@@ -330,11 +337,7 @@ mod HeadersStore {
             self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
-            self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id,
-                root,
-                last_pos
-            }));
+            self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
         }
 
         fn create_branch_single_element(
@@ -357,13 +360,9 @@ mod HeadersStore {
             self.mmr.write(latest_mmr_id, mmr);
             self.mmr_history.write((latest_mmr_id, last_pos), root);
             self.latest_mmr_id.write(latest_mmr_id);
-
-
-            self.emit(Event::BranchCreated(BranchCreated {
-                mmr_id: latest_mmr_id,
-                root,
-                last_pos
-            }));
+            
+            // TODO review event
+            self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
         }
 
         fn create_branch_from(ref self: ContractState, mmr_id: usize) {
