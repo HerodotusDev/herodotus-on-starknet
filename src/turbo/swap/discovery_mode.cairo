@@ -97,7 +97,6 @@ mod DiscoveryMode {
             let value =  ITurboSwapDispatcher { contract_address: self.swap_addr.read()}.headers(_chain_id, _block_number, _property);
             if(value == 0) {
                  self.emit(Event::IdentifiedUnsetHeaderProperty(IdentifiedUnsetHeaderProperty { chain_id: _chain_id, block_number: _block_number, property: _property }));
-                return -1;
             }
             value
         }
