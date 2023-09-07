@@ -17,8 +17,8 @@ trait IEVMFactsRegistry<TContractState> {
 
     fn get_account_field(
         self: @TContractState, account: felt252, block: u256, field: AccountField
-    ) -> u256;
-    fn get_slot_value(self: @TContractState, account: felt252, block: u256, slot: u256) -> u256;
+    ) -> Option<u256>;
+    fn get_slot_value(self: @TContractState, account: felt252, block: u256, slot: u256) -> Option<u256>;
 
     fn get_account(
         self: @TContractState,
@@ -80,12 +80,12 @@ mod EVMFactsRegistry {
         headers_store: ContractAddress,
         // Update to EthAddress when supported
         // (account_address, block_number) => value
-        storage_hash: LegacyMap::<(felt252, u256), u256>,
-        code_hash: LegacyMap::<(felt252, u256), u256>,
-        balance: LegacyMap::<(felt252, u256), u256>,
-        nonce: LegacyMap::<(felt252, u256), u256>,
+        storage_hash: LegacyMap::<(felt252, u256), Option<u256>>,
+        code_hash: LegacyMap::<(felt252, u256), Option<u256>>,
+        balance: LegacyMap::<(felt252, u256), Option<u256>>,
+        nonce: LegacyMap::<(felt252, u256), Option<u256>>,
         // (account_address, block_number, slot) => value
-        slot_values: LegacyMap::<(felt252, u256, u256), u256>
+        slot_values: LegacyMap::<(felt252, u256, u256), Option<u256>>
     }
 
     #[event]
@@ -123,7 +123,7 @@ mod EVMFactsRegistry {
 
         fn get_account_field(
             self: @ContractState, account: felt252, block: u256, field: AccountField
-        ) -> u256 {
+        ) -> Option<u256> {
             match field {
                 AccountField::StorageHash(_) => self.storage_hash.read((account, block)),
                 AccountField::CodeHash(_) => self.code_hash.read((account, block)),
@@ -132,7 +132,7 @@ mod EVMFactsRegistry {
             }
         }
 
-        fn get_slot_value(self: @ContractState, account: felt252, block: u256, slot: u256) -> u256 {
+        fn get_slot_value(self: @ContractState, account: felt252, block: u256, slot: u256) -> Option<u256> {
             self.slot_values.read((account, block, slot))
         }
 
@@ -170,8 +170,7 @@ mod EVMFactsRegistry {
             slot_len: usize,
             mpt_proof: Span<Words64>
         ) -> u256 {
-            let storage_hash = self.storage_hash.read((account, block));
-            assert(storage_hash != Zeroable::zero(), 'Storage hash not proven');
+            let storage_hash = self.storage_hash.read((account, block)).expect('Storage hash not proven');
 
             let mpt = MPTTrait::new(storage_hash);
             // TODO error handling
@@ -210,7 +209,7 @@ mod EVMFactsRegistry {
                 }
 
                 let field = fields.at(i);
-                let value = *field_values.at(i);
+                let value = Option::Some(*field_values.at(i));
 
                 match field {
                     AccountField::StorageHash(_) => {
@@ -244,7 +243,7 @@ mod EVMFactsRegistry {
             let value = EVMFactsRegistry::get_storage(
                 @self, block, account, slot, slot_len, mpt_proof
             );
-            self.slot_values.write((account, block, slot), value);
+            self.slot_values.write((account, block, slot), Option::Some(value));
 
             self.emit(Event::StorageProven(StorageProven { account, block, slot, value: value }));
         }
