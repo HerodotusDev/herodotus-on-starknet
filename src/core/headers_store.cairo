@@ -54,7 +54,7 @@ trait IHeadersStore<TContractState> {
         headers_rlp: Span<Words64>,
         mmr_peaks: Peaks,
         mmr_id: usize,
-        initial_block: Option<u256>,
+        reference_block: Option<u256>,
         mmr_index: Option<usize>,
         mmr_proof: Option<Proof>,
     );
@@ -84,13 +84,6 @@ mod HeadersStore {
     use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
-    use zeroable::Zeroable;
-    use array::{ArrayTrait, SpanTrait};
-    use traits::{Into, TryInto};
-    use result::ResultTrait;
-    use option::OptionTrait;
-    use clone::Clone;
-    use debug::PrintTrait;
 
     const MMR_INITIAL_ROOT: felt252 =
         0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
@@ -231,7 +224,7 @@ mod HeadersStore {
             headers_rlp: Span<Words64>,
             mmr_peaks: Peaks,
             mmr_id: usize,
-            initial_block: Option<u256>,
+            reference_block: Option<u256>,
             mmr_index: Option<usize>,
             mmr_proof: Option<Proof>,
         ) {
@@ -246,7 +239,7 @@ mod HeadersStore {
                     .unwrap();
                 assert(valid_proof, 'Invalid proof');
             } else {
-                start_block = initial_block.unwrap();
+                start_block = reference_block.unwrap();
                 let initial_blockhash = self.received_blocks.read(start_block);
                 assert(initial_blockhash != Zeroable::zero(), 'Block not received');
 
@@ -269,7 +262,7 @@ mod HeadersStore {
                 let parent_hash: u256 = match decoded_rlp {
                     RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                     RLPItem::List(l) => {
-                        if i == 1 && initial_block.is_none() {
+                        if i == 1 && reference_block.is_none() {
                             // reverse endianness
                             start_block = (*l.at(8)).try_into().unwrap();
                         }
@@ -376,7 +369,10 @@ mod HeadersStore {
             self.latest_mmr_id.write(latest_mmr_id);
 
             // TODO review event
-            self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
+            self
+                .emit(
+                    Event::BranchCreated(BranchCreated { mmr_id: latest_mmr_id, root, last_pos })
+                );
         }
 
         fn create_branch_from(ref self: ContractState, mmr_id: usize) {

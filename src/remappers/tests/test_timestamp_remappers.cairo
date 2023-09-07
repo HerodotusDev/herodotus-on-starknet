@@ -247,16 +247,9 @@ fn test_remappers() {
     };
     let timestamp = 1578761039; // Element to find (exact match)
 
-    let corresponding_block_number_result = remapper_dispatcher
-        .get_closest_l1_block_number(tree, timestamp);
+    let corresponding_block_number = remapper_dispatcher
+        .get_closest_l1_block_number(tree, timestamp)
+        .unwrap();
 
-    match corresponding_block_number_result {
-        Result::Ok(corresponding_block_number) => {
-            assert(corresponding_block_number.unwrap() == start_block, 'Unexpected block number');
-        },
-        Result::Err(err) => {
-            err.print();
-            assert(false, 'An error occured')
-        }
-    }
+    assert(corresponding_block_number.unwrap() == start_block, 'Unexpected block number');
 }

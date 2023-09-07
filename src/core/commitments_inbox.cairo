@@ -1,5 +1,4 @@
 use starknet::{ContractAddress, EthAddress};
-use option::OptionTrait;
 
 #[starknet::interface]
 trait ICommitmentsInbox<TContractState> {
@@ -21,11 +20,9 @@ trait ICommitmentsInbox<TContractState> {
 #[starknet::contract]
 mod CommitmentsInbox {
     use starknet::{ContractAddress, get_caller_address, EthAddress};
-    use zeroable::Zeroable;
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
-    use traits::Into;
 
     #[storage]
     struct Storage {

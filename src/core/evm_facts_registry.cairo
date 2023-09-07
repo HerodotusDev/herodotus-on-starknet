@@ -64,7 +64,6 @@ trait IEVMFactsRegistry<TContractState> {
 #[starknet::contract]
 mod EVMFactsRegistry {
     use starknet::ContractAddress;
-    use zeroable::Zeroable;
     use super::AccountField;
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::data_structures::mmr::peaks::Peaks;
@@ -72,10 +71,6 @@ mod EVMFactsRegistry {
     use cairo_lib::data_structures::eth_mpt::MPTTrait;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
-    use result::ResultTrait;
-    use option::OptionTrait;
-    use traits::{Into, TryInto};
-    use array::{ArrayTrait, SpanTrait};
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };

@@ -54,21 +54,16 @@ mod TimestampRemappers {
         ITimestampRemappers, Headers, OriginElement, Proof, Peaks, Words64, ProofElement,
         BinarySearchTree
     };
-    use array::SpanTrait;
-    use array::{ArrayTrait};
-    use result::ResultTrait;
-    use option::OptionTrait;
-    use traits::{Into, TryInto};
-    use clone::Clone;
-    use starknet::{ContractAddress};
-    use zeroable::Zeroable;
+    use starknet::ContractAddress;
+
+    use herodotus_eth_starknet::core::headers_store::{
+        IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
+    };
+
     use cairo_lib::hashing::poseidon::PoseidonHasher;
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use cairo_lib::utils::types::words64::{reverse_endianness, bytes_used};
-    use herodotus_eth_starknet::core::headers_store::{
-        IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
-    };
 
     #[derive(Drop, Clone, starknet::Store)]
     struct Mapper {
