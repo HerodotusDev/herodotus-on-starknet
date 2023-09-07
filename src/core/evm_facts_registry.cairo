@@ -67,7 +67,7 @@ mod EVMFactsRegistry {
     use super::AccountField;
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::data_structures::mmr::peaks::Peaks;
-    use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
+    use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::data_structures::eth_mpt::MPTTrait;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
@@ -263,7 +263,7 @@ mod EVMFactsRegistry {
             mmr_proof: Proof,
             mmr_id: usize,
         ) -> (u256, Span<u256>) {
-            let blockhash = PoseidonHasherWords64::hash_words64(block_header_rlp);
+            let blockhash = hash_words64(block_header_rlp);
 
             let contract_address = self.headers_store.read();
             let mmr_inclusion = IHeadersStoreDispatcher {

@@ -80,8 +80,8 @@ mod HeadersStore {
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
-    use cairo_lib::hashing::keccak::KeccakTrait;
-    use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
+    use cairo_lib::hashing::keccak::keccak_cairo_words64;
+    use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
 
@@ -198,10 +198,10 @@ mod HeadersStore {
             let blockhash = self.received_blocks.read(block_number);
             assert(blockhash != Zeroable::zero(), 'Block not received');
 
-            let rlp_hash = InternalFunctions::keccak_hash_rlp_be(header_rlp);
+            let rlp_hash = InternalFunctions::keccak_hash_rlp(header_rlp, true);
             assert(rlp_hash == blockhash, 'Invalid header rlp');
 
-            let poseidon_hash = PoseidonHasherWords64::hash_words64(header_rlp);
+            let poseidon_hash = hash_words64(header_rlp);
 
             let mut mmr = self.mmr.read(mmr_id);
             mmr.append(poseidon_hash, mmr_peaks).unwrap();
@@ -229,7 +229,7 @@ mod HeadersStore {
             mmr_proof: Option<Proof>,
         ) {
             let mut mmr = self.mmr.read(mmr_id);
-            let poseidon_hash = PoseidonHasherWords64::hash_words64(*headers_rlp.at(0));
+            let poseidon_hash = hash_words64(*headers_rlp.at(0));
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
 
@@ -243,7 +243,7 @@ mod HeadersStore {
                 let initial_blockhash = self.received_blocks.read(start_block);
                 assert(initial_blockhash != Zeroable::zero(), 'Block not received');
 
-                let rlp_hash = InternalFunctions::keccak_hash_rlp_be(*headers_rlp.at(0));
+                let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), true);
                 assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
                 let (_, p) = mmr.append(poseidon_hash, mmr_peaks).unwrap();
@@ -273,10 +273,10 @@ mod HeadersStore {
                 };
 
                 let current_rlp = *headers_rlp.at(i);
-                let current_hash = KeccakTrait::keccak_cairo_word64(current_rlp);
+                let current_hash = InternalFunctions::keccak_hash_rlp(current_rlp, false);
                 assert(current_hash == parent_hash, 'Invalid header rlp');
 
-                let poseidon_hash = PoseidonHasherWords64::hash_words64(current_rlp);
+                let poseidon_hash = hash_words64(current_rlp);
 
                 let (_, p) = mmr.append(poseidon_hash, peaks).unwrap();
                 peaks = p;
@@ -395,9 +395,13 @@ mod HeadersStore {
 
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
-        fn keccak_hash_rlp_be(rlp: Words64) -> u256 {
-            let mut hash = KeccakTrait::keccak_cairo_word64(rlp);
-            reverse_endianness_u256(hash)
+        fn keccak_hash_rlp(rlp: Words64, big_endian: bool) -> u256 {
+            let mut hash = keccak_cairo_words64(rlp);
+            if big_endian {
+                reverse_endianness_u256(hash)
+            } else {
+                hash
+            }
         }
     }
 }
