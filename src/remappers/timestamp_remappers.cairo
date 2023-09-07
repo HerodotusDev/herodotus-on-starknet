@@ -63,7 +63,7 @@ mod TimestampRemappers {
     use cairo_lib::hashing::poseidon::PoseidonHasher;
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
-    use cairo_lib::utils::types::words64::{reverse_endianness, bytes_used};
+    use cairo_lib::utils::types::words64::{reverse_endianness_u64, bytes_used_u64};
 
     #[derive(Drop, Clone, starknet::Store)]
     struct Mapper {
@@ -253,9 +253,9 @@ mod TimestampRemappers {
                 },
             };
             (
-                reverse_endianness(block_number, Option::Some(bytes_used(block_number).into()))
+                reverse_endianness_u64(block_number, Option::Some(bytes_used_u64(block_number).into()))
                     .into(),
-                reverse_endianness(timestamp, Option::Some(bytes_used(timestamp).into())).into()
+                reverse_endianness_u64(timestamp, Option::Some(bytes_used_u64(timestamp).into())).into()
             )
         }
 
