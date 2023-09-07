@@ -1,13 +1,8 @@
 use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
-use snforge_std::PrintTrait;
 
 use cairo_lib::data_structures::mmr::mmr::MMRTrait;
 use cairo_lib::utils::bitwise::bit_length;
 use cairo_lib::utils::math::pow;
-use array::{ArrayTrait, SpanTrait};
-use traits::{Into, TryInto};
-use option::OptionTrait;
-use result::ResultTrait;
 use starknet::ContractAddress;
 use herodotus_eth_starknet::remappers::timestamp_remappers::{
     ITimestampRemappersDispatcherTrait, ITimestampRemappersDispatcher, BinarySearchTree,
@@ -42,7 +37,7 @@ fn deploy_timestamp_remappers(headers_store: ContractAddress) -> ContractAddress
     deploy(prepared).unwrap()
 }
 
-fn test_proof(mmr: @MMR) {
+fn inner_test_proof(mmr: @MMR) {
     let mut proof = ArrayTrait::new();
     proof.append(4);
     proof.append(0x5d44a3decb2b2e0cc71071f7b802f45dd792d064f0fc7316c46514f70f9891a);
@@ -52,15 +47,7 @@ fn test_proof(mmr: @MMR) {
     peaks.append(8);
 
     let result = mmr.verify_proof(index: 5, hash: 5, peaks: peaks.span(), proof: proof.span());
-    match result {
-        Result::Ok(r) => {
-            assert(r == true, 'Invalid proof');
-        },
-        Result::Err(err) => {
-            err.print();
-            assert(false, 'Error while verifying proof')
-        }
-    }
+    assert(result.unwrap() == true, 'Invalid proof');
 }
 
 fn count_ones(n: u256) -> u256 {
@@ -102,7 +89,7 @@ fn prepare_mmr() -> MMR {
     mmr
 }
 
-fn test_reindex_batch(
+fn inner_test_reindex_batch(
     remapper_dispatcher: ITimestampRemappersDispatcher, mapper_id: usize, mmr_id: usize
 ) {
     let mut header = array![
@@ -205,7 +192,7 @@ fn test_remappers() {
 
     // An MMR containing { 1, 2, 4, 5, 8 } as string with Starknet Poseidon as a hasher.
     let mmr = prepare_mmr();
-    test_proof(@mmr);
+    inner_test_proof(@mmr);
 
     let headers_store_dispatcher = IHeadersStoreDispatcher { contract_address: headers_store };
     let mmr_id = 1; // First MMR
@@ -217,7 +204,7 @@ fn test_remappers() {
         ); // poseidon_hash(1, hexRlp(9260751))
     stop_prank(headers_store);
 
-    test_reindex_batch(remapper_dispatcher, mapper_id, mmr_id);
+    inner_test_reindex_batch(remapper_dispatcher, mapper_id, mmr_id);
 
     let mut peaks = array![1578761039];
     let mut proofs = ArrayTrait::new();
