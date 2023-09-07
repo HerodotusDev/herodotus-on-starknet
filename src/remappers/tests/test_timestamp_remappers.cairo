@@ -180,7 +180,7 @@ fn test_reindex_batch(
     let mut origin_elements = ArrayTrait::new();
     let mut origin_element_1 = OriginElement {
         tree_id: mmr_id,
-        tree_size: 1,
+        last_pos: 1,
         leaf_idx: 1,
         leaf_value: 0xafce4bb6bb364b2bb42b8df4705a6077b1231770b150eb458da627a1975376, // poseidon_hash(hexRlp(9260751))
         inclusion_proof: ArrayTrait::new().span(),
@@ -233,7 +233,7 @@ fn test_remappers() {
         );
     let tree = BinarySearchTree {
         mapper_id: mapper_id,
-        mmr_id: mmr_id,
+        last_pos: 1,
         proofs: proofs.span(),
         left_neighbor: Option::Some(
             ProofElement {
@@ -246,11 +246,10 @@ fn test_remappers() {
         ),
     };
     let timestamp = 1578761039; // Element to find (exact match)
-    let result_idx = remapper_dispatcher.mmr_binary_search(tree, timestamp);
-    assert(result_idx.unwrap() == 0, 'Invalid index');
 
-    let corresponding_block_number: u256 = remapper_dispatcher
+    let corresponding_block_number = remapper_dispatcher
         .get_closest_l1_block_number(tree, timestamp)
         .unwrap();
-    assert(corresponding_block_number == start_block, 'Unexpected block number');
+
+    assert(corresponding_block_number.unwrap() == start_block, 'Unexpected block number');
 }
