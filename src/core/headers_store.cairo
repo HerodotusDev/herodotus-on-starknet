@@ -84,13 +84,6 @@ mod HeadersStore {
     use cairo_lib::hashing::poseidon::PoseidonHasherWords64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
-    use zeroable::Zeroable;
-    use array::{ArrayTrait, SpanTrait};
-    use traits::{Into, TryInto};
-    use result::ResultTrait;
-    use option::OptionTrait;
-    use clone::Clone;
-    use debug::PrintTrait;
 
     const MMR_INITIAL_ROOT: felt252 =
         0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
