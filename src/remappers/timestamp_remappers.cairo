@@ -1,78 +1,21 @@
-use cairo_lib::data_structures::mmr::proof::Proof;
-use cairo_lib::data_structures::mmr::peaks::Peaks;
-use cairo_lib::utils::types::words64::Words64;
-
-type Headers = Span<Words64>;
-
-#[derive(Drop, Serde)]
-struct OriginElement {
-    tree_id: usize,
-    last_pos: usize,
-    leaf_idx: usize,
-    leaf_value: felt252,
-    inclusion_proof: Proof,
-    peaks: Peaks,
-    header: Words64
-}
-
-#[derive(Drop, Serde)]
-struct ProofElement {
-    index: usize,
-    value: u256,
-    peaks: Peaks,
-    proof: Proof,
-    last_pos: usize,
-}
-
-#[derive(Drop, Serde)]
-struct BinarySearchTree {
-    mapper_id: usize,
-    last_pos: usize,
-    proofs: Span<ProofElement>,
-    left_neighbor: Option<ProofElement>,
-}
-
-#[starknet::interface]
-trait ITimestampRemappers<TContractState> {
-    fn create_mapper(ref self: TContractState, start_block: u256) -> usize;
-
-    fn reindex_batch(
-        ref self: TContractState,
-        mapper_id: usize,
-        mapper_peaks: Peaks,
-        origin_elements: Span<OriginElement>
-    );
-
-    fn get_closest_l1_block_number(
-        self: @TContractState, tree: BinarySearchTree, timestamp: u256
-    ) -> Result<Option<u256>, felt252>;
-
-    fn get_last_mapper_timestamp(self: @TContractState, mapper_id: usize) -> u256;
-}
-
 #[starknet::contract]
 mod TimestampRemappers {
-    use super::{
+    use herodotus_eth_starknet::remappers::interface::{
         ITimestampRemappers, Headers, OriginElement, Proof, Peaks, Words64, ProofElement,
         BinarySearchTree
     };
     use starknet::ContractAddress;
-
-    use herodotus_eth_starknet::core::headers_store::{
-        IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
-    };
-
     use cairo_lib::hashing::poseidon::PoseidonHasher;
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use cairo_lib::utils::types::words64::{reverse_endianness_u64, bytes_used_u64};
+    use herodotus_eth_starknet::core::headers_store::{
+        IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
+    };
 
-    #[derive(Drop, Clone, starknet::Store)]
-    struct Mapper {
-        start_block: u256,
-        elements_count: u256,
-        last_timestamp: u256,
-    }
+    //
+    // Events
+    //
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -96,6 +39,21 @@ mod TimestampRemappers {
         mmr_size: usize
     }
 
+    //
+    // Structs
+    //
+
+    #[derive(Drop, Clone, starknet::Store)]
+    struct Mapper {
+        start_block: u256,
+        elements_count: u256,
+        last_timestamp: u256,
+    }
+
+    //
+    // Storage
+    //
+
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
@@ -112,8 +70,13 @@ mod TimestampRemappers {
         self.mappers_count.write(0);
     }
 
+    //
+    // External
+    //
+
     #[external(v0)]
-    impl TimestampRemappers of super::ITimestampRemappers<ContractState> {
+    impl TimestampRemappers of ITimestampRemappers<ContractState> {
+        // Creates a new mapper and returns its ID.
         fn create_mapper(ref self: ContractState, start_block: u256) -> usize {
             let mmr: MMR = Default::default();
 
@@ -132,20 +95,17 @@ mod TimestampRemappers {
             mapper_id
         }
 
+        // Adds elements from other trusted data sources to the given mapper.
         fn reindex_batch(
             ref self: ContractState,
             mapper_id: usize,
             mapper_peaks: Peaks,
             origin_elements: Span<OriginElement>
         ) {
+            // Fetch from storage
             let headers_store_addr = self.headers_store.read();
-
             let mut mapper = self.mappers.read(mapper_id);
-            // let mut mapper_mmr = mapper.mmr.clone();
-
             let mut mapper_mmr = self.mappers_mmrs.read(mapper_id);
-
-            let mut mapper_peaks = mapper_peaks;
 
             // Determine the expected block number of the first element in the batch
             let mut expected_block = 0;
@@ -156,8 +116,8 @@ mod TimestampRemappers {
             }
 
             let mut idx = 0;
-            let len = origin_elements.len();
-            let mut last_timestamp = 0;
+            let len = origin_elements.len(); // Count of elements in the batch to append
+            let mut last_timestamp = 0; // Local to this batch
             loop {
                 if idx == len {
                     break ();
@@ -192,6 +152,7 @@ mod TimestampRemappers {
                 // Add the block timestamp to the mapper MMR so we can binary search it later
                 mapper_mmr.append(origin_element_timestamp.try_into().unwrap(), mapper_peaks);
 
+                // Update storage to the last timestamp of the batch
                 if idx == len - 1 {
                     last_timestamp = origin_element_timestamp;
                 }
@@ -207,6 +168,7 @@ mod TimestampRemappers {
 
             // Update the mapper MMR in the storage
             self.mappers_mmrs.write(mapper_id, mapper_mmr.clone());
+
             // Update MMR history
             self.mappers_mmrs_history.write((mapper_id, mapper_mmr.last_pos), mapper_mmr.root);
 
@@ -224,6 +186,7 @@ mod TimestampRemappers {
                 );
         }
 
+        // Retrieves the timestamp of the L1 block closest to the given timestamp.
         fn get_closest_l1_block_number(
             self: @ContractState, tree: BinarySearchTree, timestamp: u256
         ) -> Result<Option<u256>, felt252> {
@@ -232,7 +195,7 @@ mod TimestampRemappers {
 
             let mapper_idx = InternalFunctions::mmr_binary_search(self, tree, timestamp);
             if mapper_idx.is_none() {
-                // Happens when the provided timestamp is smaller than
+                // Happens when the provided timestamp is smaller or larger than
                 // the first timestamp in the specified mapper MMR
                 return Result::Err('No corresponding block number');
             }
@@ -243,14 +206,23 @@ mod TimestampRemappers {
             return Result::Ok(Option::Some(corresponding_block_number));
         }
 
+        // Getter for the last timestamp of a given mapper.
         fn get_last_mapper_timestamp(self: @ContractState, mapper_id: usize) -> u256 {
             let mapper = self.mappers.read(mapper_id);
             mapper.last_timestamp
         }
     }
 
+    //
+    // Constants
+    //
+
     const BLOCK_NUMBER_OFFSET_IN_HEADER_RLP: usize = 8;
     const TIMESTAMP_OFFSET_IN_HEADER_RLP: usize = 11;
+
+    //
+    // Internal
+    //
 
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
@@ -294,16 +266,29 @@ mod TimestampRemappers {
             2 * n - 1 - InternalFunctions::count_ones(n - 1)
         }
 
+        // Performs a binary search on the elements (i.e., timestamps) contained in the mapper MMR.
+        // Since the elements are not accessible directly, we need to use their inclusion proofs
+        // for each of those we want to access (i.e., every midpoint in the binary search).
+        // Returns the index of the closest element to the given timestamp:
+        // - If `x` is smaller than the first timestamp in the MMR, returns None.
+        // - If `x` is larger than the last timestamp in the MMR, returns None.
+        // - If `x` has an exact match, returns the index of the exact match.
+        // - Otherwise, returns the index of the closest element smaller than `x` on the left side.
         fn mmr_binary_search(
             self: @ContractState, tree: BinarySearchTree, x: u256
         ) -> Option<u256> {
+            // Fetch mapper and its last timestamp from storage
             let mapper = self.mappers.read(tree.mapper_id);
             let last_timestamp = mapper.last_timestamp;
+
+            // Retrieve the header store address
+            let headers_store_addr = self.headers_store.read();
 
             // Fetch MMR from history
             let root = self.mappers_mmrs_history.read((tree.mapper_id, tree.last_pos));
             let mmr = MMRTrait::new(root, tree.last_pos);
 
+            // No elements to search in
             if mapper.elements_count == 0 {
                 return Option::None(());
             }
@@ -313,12 +298,11 @@ mod TimestampRemappers {
                 return Option::None(());
             }
 
-            let elements_count = mapper.elements_count;
-            let headers_store_addr = self.headers_store.read();
-            let proofs: Span<ProofElement> = tree.proofs;
-            let mut proof_idx = 0;
-            let mut left: u256 = 0;
-            let mut right: u256 = elements_count;
+            let elements_count = mapper.elements_count; // Count of timestamps in the MMR
+            let proofs: Span<ProofElement> = tree.proofs; // Inclusion proofs of midpoint elements
+            let mut proof_idx = 0; // Offset in the proofs array
+            let mut left: u256 = 0; // Low boundary (search)
+            let mut right: u256 = elements_count; // High boundary (search)
             loop {
                 if left >= right {
                     break;
@@ -326,7 +310,6 @@ mod TimestampRemappers {
 
                 let mid: u256 = (left + right) / 2;
                 let proof_element: @ProofElement = proofs.at(proof_idx);
-
                 assert(
                     (*proof_element.index)
                         .into() == InternalFunctions::leaf_index_to_mmr_index(mid + 1),

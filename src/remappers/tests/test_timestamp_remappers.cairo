@@ -1,17 +1,16 @@
 use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
-
+use starknet::ContractAddress;
+use cairo_lib::data_structures::mmr::mmr::MMR;
 use cairo_lib::data_structures::mmr::mmr::MMRTrait;
 use cairo_lib::utils::bitwise::bit_length;
 use cairo_lib::utils::math::pow;
-use starknet::ContractAddress;
-use herodotus_eth_starknet::remappers::timestamp_remappers::{
+use herodotus_eth_starknet::remappers::interface::{
     ITimestampRemappersDispatcherTrait, ITimestampRemappersDispatcher, BinarySearchTree,
     ProofElement, OriginElement
 };
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
 };
-use cairo_lib::data_structures::mmr::mmr::MMR;
 
 fn deploy_headers_store() -> ContractAddress {
     let class_hash = declare('HeadersStore');

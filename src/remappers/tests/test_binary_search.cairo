@@ -1,7 +1,10 @@
-use option::OptionTrait;
-use core::array::{ArrayTrait, SpanTrait};
-use traits::{Into, TryInto, PartialOrd};
-
+// Performs a binary search for `x` on `arr`.
+// Returns the index of the closest element to `x` on the left side
+// (or the index of `x` in case of exact match).
+// - If `x` is smaller than the first element, returns None.
+// - If `x` is larger than the last element, returns None.
+// - If `x` has an exact match, returns the index of the exact match.
+// - Otherwise, returns the index of the closest element smaller than `x` on the left side.
 fn binary_search(arr: Span<u256>, x: u256) -> Option<u256> {
     let mut left: u256 = 0;
     let mut right: u256 = arr.len().into();
@@ -35,7 +38,7 @@ fn test_binary_search_no_element() {
     let mut arr = ArrayTrait::new();
     let arr_span = arr.span();
 
-    assert(binary_search(arr_span, 43).is_none(), 'Unexpected result ');
+    assert(binary_search(arr_span, 43).is_none(), 'Unexpected result');
 }
 
 #[test]
