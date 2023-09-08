@@ -1,10 +1,18 @@
-use option::OptionTrait;
-use core::array::{ArrayTrait, SpanTrait};
-use traits::{Into, TryInto, PartialOrd};
-
+// Performs a binary search for `x` on `arr`.
+// Returns the index of the closest element to `x` on the left side
+// (or the index of `x` in case of exact match).
+// - If `x` is smaller than the first element, returns None.
+// - If `x` is larger than the last element, returns None.
+// - If `x` has an exact match, returns the index of the exact match.
+// - Otherwise, returns the index of the closest element smaller than `x` on the left side.
 fn binary_search(arr: Span<u256>, x: u256) -> Option<u256> {
     let mut left: u256 = 0;
     let mut right: u256 = arr.len().into();
+
+    if right > 0 && x > *arr.at(right.try_into().unwrap() - 1) {
+        return Option::None(());
+    }
+
     loop {
         if left >= right {
             break;
@@ -40,7 +48,7 @@ fn test_binary_search_single_element() {
 
     let arr_span = arr.span();
     assert(binary_search(arr_span, 42).unwrap() == 0, 'Unexpected result'); // Present
-    assert(binary_search(arr_span, 43).unwrap() == 0, 'Unexpected result'); // Not present, larger
+    assert(binary_search(arr_span, 43).is_none(), 'Unexpected result'); // Not present, larger
     assert(binary_search(arr_span, 41).is_none(), 'Unexpected result'); // Not present, smaller
 }
 
@@ -60,7 +68,7 @@ fn test_binary_search_many_elements() {
     assert(binary_search(arr_span, 3).unwrap() == 2, 'Unexpected result');
     assert(binary_search(arr_span, 4).unwrap() == 3, 'Unexpected result');
     assert(binary_search(arr_span, 5).unwrap() == 4, 'Unexpected result');
-    assert(binary_search(arr_span, 6).unwrap() == 4, 'Unexpected result');
+    assert(binary_search(arr_span, 6).is_none(), 'Unexpected result');
 }
 
 #[test]
@@ -73,7 +81,6 @@ fn text_binary_search_many_elements_with_gaps() {
 
     let arr_span = arr.span();
 
-    // Exact match for array with gaps
     assert(binary_search(arr_span, 2).is_none(), 'Unexpected result');
     assert(binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
     assert(binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result');
@@ -83,19 +90,7 @@ fn text_binary_search_many_elements_with_gaps() {
     assert(binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result');
     assert(binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result');
     assert(binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result');
-    assert(binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result');
-
-    // Closest to x
-    assert(binary_search(arr_span, 2).is_none(), 'Unexpected result');
-    assert(binary_search(arr_span, 3).unwrap() == 0, 'Unexpected result');
-    assert(binary_search(arr_span, 4).unwrap() == 0, 'Unexpected result');
-    assert(binary_search(arr_span, 7).unwrap() == 0, 'Unexpected result');
-    assert(binary_search(arr_span, 8).unwrap() == 1, 'Unexpected result');
-    assert(binary_search(arr_span, 9).unwrap() == 2, 'Unexpected result');
-    assert(binary_search(arr_span, 10).unwrap() == 2, 'Unexpected result');
-    assert(binary_search(arr_span, 13).unwrap() == 2, 'Unexpected result');
-    assert(binary_search(arr_span, 14).unwrap() == 3, 'Unexpected result');
-    assert(binary_search(arr_span, 15).unwrap() == 3, 'Unexpected result');
+    assert(binary_search(arr_span, 15).is_none(), 'Unexpected result');
 }
 
 #[test]
@@ -764,7 +759,7 @@ fn test_binary_search_1000_elements_array() {
     assert(binary_search(arr_span, 2).is_none(), 'Unexpected result');
 
     // Test for a number larger than the largest number in the array
-    assert(binary_search(arr_span, 1000).unwrap() == arr.len().into() - 1, 'Unexpected result');
+    assert(binary_search(arr_span, 1000).is_none(), 'Unexpected result');
 
     // Test for a number that's close to the middle
     assert(binary_search(arr_span, 500).unwrap() == 317, 'Unexpected result');
