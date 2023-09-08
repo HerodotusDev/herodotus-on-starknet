@@ -46,6 +46,8 @@ trait ITimestampRemappers<TContractState> {
     fn get_closest_l1_block_number(
         self: @TContractState, tree: BinarySearchTree, timestamp: u256
     ) -> Result<Option<u256>, felt252>;
+
+    fn get_last_mapper_timestamp(self: @TContractState, mapper_id: usize) -> u256;
 }
 
 #[starknet::contract]
@@ -69,6 +71,7 @@ mod TimestampRemappers {
     struct Mapper {
         start_block: u256,
         elements_count: u256,
+        last_timestamp: u256,
     }
 
     #[event]
@@ -119,7 +122,7 @@ mod TimestampRemappers {
             self.mappers_mmrs_history.write((mapper_id, 0), mmr.root);
             self.mappers_mmrs.write(mapper_id, mmr);
 
-            let mapper = Mapper { start_block, elements_count: 0,  };
+            let mapper = Mapper { start_block, elements_count: 0, last_timestamp: 0 };
             self.mappers.write(mapper_id, mapper);
 
             self.mappers_count.write(mapper_id + 1);
@@ -154,6 +157,7 @@ mod TimestampRemappers {
 
             let mut idx = 0;
             let len = origin_elements.len();
+            let mut last_timestamp = 0;
             loop {
                 if idx == len {
                     break ();
@@ -188,12 +192,17 @@ mod TimestampRemappers {
                 // Add the block timestamp to the mapper MMR so we can binary search it later
                 mapper_mmr.append(origin_element_timestamp.try_into().unwrap(), mapper_peaks);
 
+                if idx == len - 1 {
+                    last_timestamp = origin_element_timestamp;
+                }
+
                 expected_block += 1;
                 idx += 1;
             };
 
             // Update the mapper in the storage
             mapper.elements_count += len.into();
+            mapper.last_timestamp = last_timestamp;
             self.mappers.write(mapper_id, mapper.clone());
 
             // Update the mapper MMR in the storage
@@ -233,6 +242,11 @@ mod TimestampRemappers {
 
             return Result::Ok(Option::Some(corresponding_block_number));
         }
+
+        fn get_last_mapper_timestamp(self: @ContractState, mapper_id: usize) -> u256 {
+            let mapper = self.mappers.read(mapper_id);
+            mapper.last_timestamp
+        }
     }
 
     const BLOCK_NUMBER_OFFSET_IN_HEADER_RLP: usize = 8;
@@ -253,9 +267,12 @@ mod TimestampRemappers {
                 },
             };
             (
-                reverse_endianness_u64(block_number, Option::Some(bytes_used_u64(block_number).into()))
+                reverse_endianness_u64(
+                    block_number, Option::Some(bytes_used_u64(block_number).into())
+                )
                     .into(),
-                reverse_endianness_u64(timestamp, Option::Some(bytes_used_u64(timestamp).into())).into()
+                reverse_endianness_u64(timestamp, Option::Some(bytes_used_u64(timestamp).into()))
+                    .into()
             )
         }
 
@@ -281,12 +298,18 @@ mod TimestampRemappers {
             self: @ContractState, tree: BinarySearchTree, x: u256
         ) -> Option<u256> {
             let mapper = self.mappers.read(tree.mapper_id);
+            let last_timestamp = mapper.last_timestamp;
 
             // Fetch MMR from history
             let root = self.mappers_mmrs_history.read((tree.mapper_id, tree.last_pos));
             let mmr = MMRTrait::new(root, tree.last_pos);
 
             if mapper.elements_count == 0 {
+                return Option::None(());
+            }
+
+            // If the timestamp is larger than the last timestamp in the MMR, return None
+            if x > last_timestamp {
                 return Option::None(());
             }
 

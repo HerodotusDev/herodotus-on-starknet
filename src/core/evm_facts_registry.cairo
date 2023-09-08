@@ -18,7 +18,9 @@ trait IEVMFactsRegistry<TContractState> {
     fn get_account_field(
         self: @TContractState, account: felt252, block: u256, field: AccountField
     ) -> Option<u256>;
-    fn get_slot_value(self: @TContractState, account: felt252, block: u256, slot: u256) -> Option<u256>;
+    fn get_slot_value(
+        self: @TContractState, account: felt252, block: u256, slot: u256
+    ) -> Option<u256>;
 
     fn get_account(
         self: @TContractState,
@@ -132,7 +134,9 @@ mod EVMFactsRegistry {
             }
         }
 
-        fn get_slot_value(self: @ContractState, account: felt252, block: u256, slot: u256) -> Option<u256> {
+        fn get_slot_value(
+            self: @ContractState, account: felt252, block: u256, slot: u256
+        ) -> Option<u256> {
             self.slot_values.read((account, block, slot))
         }
 
@@ -170,7 +174,10 @@ mod EVMFactsRegistry {
             slot_len: usize,
             mpt_proof: Span<Words64>
         ) -> u256 {
-            let storage_hash = self.storage_hash.read((account, block)).expect('Storage hash not proven');
+            let storage_hash = self
+                .storage_hash
+                .read((account, block))
+                .expect('Storage hash not proven');
 
             let mpt = MPTTrait::new(storage_hash);
             // TODO error handling
@@ -266,9 +273,8 @@ mod EVMFactsRegistry {
             let blockhash = hash_words64(block_header_rlp);
 
             let contract_address = self.headers_store.read();
-            let mmr_inclusion = IHeadersStoreDispatcher {
-                contract_address
-            }.verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id);
+            let mmr_inclusion = IHeadersStoreDispatcher { contract_address }
+                .verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id);
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
             let (decoded_rlp, _) = rlp_decode(block_header_rlp).unwrap();

@@ -239,4 +239,8 @@ fn test_remappers() {
         .unwrap();
 
     assert(corresponding_block_number.unwrap() == start_block, 'Unexpected block number');
+    assert(
+        remapper_dispatcher.get_last_mapper_timestamp(mapper_id) == timestamp,
+        'Invalid mapper timestamp'
+    );
 }
