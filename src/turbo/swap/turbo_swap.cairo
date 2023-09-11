@@ -17,9 +17,19 @@ trait ITurboSwap<TContractState> {
         ref self: TContractState, attestations: Span<TurboSwap::AccountAttestation>
     );
     fn upgrade(ref self: TContractState, impl_hash: starknet::class_hash::ClassHash);
-    fn storage_slots(ref self: TContractState, chain_id: u256, block_number: u256, account: felt252, slot: u256)  -> u256;
-    fn accounts(ref self: TContractState, chain_id: u256, block_number: u256, property: u256) -> u256;
-    fn headers(ref self: TContractState, chain_id: u256, block_number: u256, property: u256) -> u256;
+    fn storage_slots(
+        ref self: TContractState, chain_id: u256, block_number: u256, account: felt252, slot: u256
+    ) -> u256;
+    fn accounts(
+        ref self: TContractState,
+        chain_id: u256,
+        block_number: u256,
+        account: felt252,
+        property: u256
+    ) -> u256;
+    fn headers(
+        ref self: TContractState, chain_id: u256, block_number: u256, property: u256
+    ) -> u256;
 }
 
 
@@ -49,7 +59,7 @@ mod TurboSwap {
         auctioning_system: ContractAddress,
         _headers: LegacyMap<(u256, u256, u256), u256>,
         _accounts: LegacyMap<(u256, u256, felt252, u256), u256>,
-        _storageSlots: LegacyMap::<(u256, u256, felt252, u256), u256>
+        _storage_slots: LegacyMap::<(u256, u256, felt252, u256), u256>
     }
 
     #[derive(Drop, Serde)]
@@ -290,29 +300,34 @@ mod TurboSwap {
 
                 let attestation = attestations.at(i);
 
-                let facts_registry = InternalFunctions::_get_facts_registry_for_chain(
-                    ref self, *attestation.chainId
-                );
+                let facts_registry = InternalFunctions::_get_facts_registry_for_chain(ref self, attestation.chainId);
                 assert(
                     facts_registry.contract_address != starknet::contract_address_const::<0>(),
                     'TurboSwap: Unknown chain id'
                 );
-
-                let value = facts_registry
+                match facts_registry
                     .get_slot_value(
                         *attestation.account, *attestation.block_number, *attestation.slot
-                    );
-                self
-                    ._storageSlots
-                    .write(
-                        (
-                            *attestation.chainId,
-                            *attestation.block_number,
-                            *attestation.account,
-                            *attestation.slot
-                        ),
-                        value
-                    );
+                    ) {
+                    Result::Ok(account_address) => {
+                        let value = account_address;
+
+                        self
+                            ._storage_slots
+                            .write(
+                                (
+                                    *attestation.chainId,
+                                    *attestation.block_number,
+                                    *attestation.account,
+                                    *attestation.slot
+                                ),
+                                value
+                            );
+                    },
+                    Result::Err(_) => {
+                        assert(false, 'ERR_REGISTRY_DATA_READ')
+                    }
+                };
             }
         }
 
@@ -331,7 +346,7 @@ mod TurboSwap {
                 }
                 let attestation = attestations.at(i);
                 self
-                    ._storageSlots
+                    ._storage_slots
                     .write(
                         (
                             *attestation.chainId,
@@ -372,33 +387,61 @@ mod TurboSwap {
                     Result::Ok(property_uint) => {
                         let mut value = 0;
                         if (property_uint == 0) {
-                            value = facts_registry
+                            match facts_registry
                                 .get_account_field(
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::Nonce
-                                );
+                                ) {
+                                Result::Ok(account_value) => {
+                                    value = account;
+                                },
+                                Result::Err(_) => {
+                                    assert(false, 'ERR_REGISTRY_DATA_READ')
+                                }
+                                };
                         } else if (property_uint == 1) {
-                            value = facts_registry
+                            match facts_registry
                                 .get_account_field(
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::Balance
-                                );
+                                ) {
+                                    Result::Ok(account_value) => {
+                                        value = account;
+                                    },
+                                    Result::Err(_) => {
+                                        assert(false, 'ERR_REGISTRY_DATA_READ')
+                                    }
+                                };
                         } else if (property_uint == 2) {
-                            value = facts_registry
+                            match facts_registry
                                 .get_account_field(
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::StorageHash
-                                );
+                                ) => {
+                                    Result::Ok(account_value) => {
+                                        value = account;
+                                    },
+                                    Result::Err(_) => {
+                                        assert(false, 'ERR_REGISTRY_DATA_READ')
+                                    }
+                                };
                         } else if (property_uint == 3) {
-                            value = facts_registry
+                            match facts_registry
                                 .get_account_field(
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::CodeHash
-                                );
+                                ) => {
+                                    Result::Ok(account_value) => {
+                                        value = account;
+                                    },
+                                    Result::Err(_) => {
+                                        assert(false, 'ERR_REGISTRY_DATA_READ')
+                                    }
+                                };
                         } else {
                             assert(false, 'TurboSwap: Unknown property')
                         }
@@ -439,7 +482,7 @@ mod TurboSwap {
                 match InternalFunctions::_property_to_uint(attestation.property) {
                     Result::Ok(property_uint) => {
                         self
-                            ._storageSlots
+                            ._storage_slots
                             .write(
                                 (
                                     *attestation.chain_id,
@@ -465,19 +508,33 @@ mod TurboSwap {
             self.emit(Event::Upgraded(Upgraded { implementation: impl_hash }))
         }
 
-        fn storage_slots(ref self: ContractState, chain_id: u256, block_number: u256, account: felt252, slot: u256)  -> u256 {
+        fn storage_slots(
+            ref self: ContractState,
+            chain_id: u256,
+            block_number: u256,
+            account: felt252,
+            slot: u256
+        ) -> u256 {
             let value = self._storage_slots.read((chain_id, block_number, account, slot));
             assert(value != 0, 'TurboSwap: Storage slot not set');
             value
         }
 
-        fn accounts(ref self: ContractState, chain_id: u256, block_number: u256, account: felt252, property: u256) -> u256 {
+        fn accounts(
+            ref self: ContractState,
+            chain_id: u256,
+            block_number: u256,
+            account: felt252,
+            property: u256
+        ) -> u256 {
             let value = self._accounts.read((chain_id, block_number, account, property));
             assert(value != 0, 'TurboSwap: Account property not set');
             value
         }
 
-        fn headers(ref self: ContractState, chain_id: u256, block_number: u256, account: felt252, property: u256) -> u256 {
+        fn headers(
+            ref self: ContractState, chain_id: u256, block_number: u256, property: u256
+        ) -> u256 {
             let value = self._headers.read((chain_id, block_number, account, property));
             assert(value != 0, 'TurboSwap: Account property not set');
             value
