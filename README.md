@@ -34,4 +34,4 @@ https://www.notion.so/herodotus/Herodotus-on-Starknet-Smart-contracts-flow-bb42d
 This repository highly relies on the work implemented in:
 https://github.com/HerodotusDev/cairo-lib
 
-Herodotus Dev - 2023.
+Herodotus Dev Ltd - 2023.
