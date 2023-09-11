@@ -31,9 +31,9 @@ struct ProofElement {
 #[derive(Drop, Serde)]
 struct BinarySearchTree {
     mapper_id: usize,
-    last_pos: usize,
-    proofs: Span<ProofElement>,
-    left_neighbor: Option<ProofElement>,
+    last_pos: usize, // last_pos in mapper's MMR
+    proofs: Span<ProofElement>, // Midpoint elements inclusion proofs
+    left_neighbor: Option<ProofElement>, // Optional left neighbor inclusion proof
 }
 
 //
@@ -53,7 +53,7 @@ trait ITimestampRemappers<TContractState> {
         origin_elements: Span<OriginElement>
     );
 
-    // Retrieves the timestamp of the L1 block closest to the given timestamp.
+    // Retrieves the block number of the L1 closest timestamp to the given timestamp.
     fn get_closest_l1_block_number(
         self: @TContractState, tree: BinarySearchTree, timestamp: u256
     ) -> Result<Option<u256>, felt252>;

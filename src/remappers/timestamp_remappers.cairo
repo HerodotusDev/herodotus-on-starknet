@@ -57,11 +57,13 @@ mod TimestampRemappers {
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
+        // id => mapper
+        mappers: LegacyMap::<usize, Mapper>,
+        mappers_count: usize,
+        // id => mmr
         mappers_mmrs: LegacyMap::<usize, MMR>,
         // (id, size) => root
         mappers_mmrs_history: LegacyMap::<(usize, usize), felt252>,
-        mappers: LegacyMap::<usize, Mapper>,
-        mappers_count: usize,
     }
 
     #[constructor]
@@ -155,9 +157,10 @@ mod TimestampRemappers {
                 // Update storage to the last timestamp of the batch
                 if idx == len - 1 {
                     last_timestamp = origin_element_timestamp;
+                } else {
+                    expected_block += 1;
                 }
 
-                expected_block += 1;
                 idx += 1;
             };
 
@@ -186,7 +189,7 @@ mod TimestampRemappers {
                 );
         }
 
-        // Retrieves the timestamp of the L1 block closest to the given timestamp.
+        // Retrieves the block number of the L1 block closest timestamp to the given timestamp.
         fn get_closest_l1_block_number(
             self: @ContractState, tree: BinarySearchTree, timestamp: u256
         ) -> Result<Option<u256>, felt252> {
@@ -301,8 +304,8 @@ mod TimestampRemappers {
             let elements_count = mapper.elements_count; // Count of timestamps in the MMR
             let proofs: Span<ProofElement> = tree.proofs; // Inclusion proofs of midpoint elements
             let mut proof_idx = 0; // Offset in the proofs array
-            let mut left: u256 = 0; // Low boundary (search)
-            let mut right: u256 = elements_count; // High boundary (search)
+            let mut left: u256 = 0; // Lower boundary (search)
+            let mut right: u256 = elements_count; // Higher boundary (search)
             loop {
                 if left >= right {
                     break;
