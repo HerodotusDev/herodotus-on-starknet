@@ -1,27 +1,48 @@
+// SPDX-License-Identifier: GPL-3.0
+
 use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::data_structures::mmr::mmr::MMR;
 
+//
+// Interface
+//
+
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
+    // Returns the address of the CommitmentsInbox contract.
     fn get_commitments_inbox(self: @TContractState) -> ContractAddress;
 
+    // Returns the MMR with the given id.
     fn get_mmr(self: @TContractState, mmr_id: usize) -> MMR;
 
+    // Returns the root of the MMR with the given id.
     fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
 
+    // Returns the size of the MMR with the given id.
     fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
 
+    // Returns the blockhash of the block with the given number (if previously received).
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
 
+    // Returns the latest MMR id.
     fn get_latest_mmr_id(self: @TContractState) -> usize;
 
+    // Returns the root of the MMR with the given id and size.
     fn get_historical_root(self: @TContractState, mmr_id: usize, size: usize) -> felt252;
 
+    // Receives a blockhash of a specific block number.
+    // @notice Only the CommitmentsInbox contract can call this function.
     fn receive_hash(ref self: TContractState, blockhash: u256, block_number: u256);
 
+    // Verifies an inclusion proof in the MMR with the given id.
+    // @param index The index of the element in the MMR.
+    // @param poseidon_blockhash The Poseidon hash of the blockhash.
+    // @param peaks The peaks of the MMR.
+    // @param proof The inclusion proof (i.e., siblings path to the root hash).
+    // @param mmr_id The id of the MMR.
     fn verify_mmr_inclusion(
         self: @TContractState,
         index: usize,
@@ -31,6 +52,14 @@ trait IHeadersStore<TContractState> {
         mmr_id: usize,
     ) -> bool;
 
+    // Verifies an inclusion proof in a historical MMR.
+    // @notice This type of proof does not expire even if the MMR grows after its generation.
+    // @param index The index of the element in the MMR.
+    // @param poseidon_blockhash The Poseidon hash of the blockhash.
+    // @param peaks The peaks of the MMR.
+    // @param proof The inclusion proof (i.e., siblings path to the root hash).
+    // @param mmr_id The id of the MMR.
+    // @param last_pos The size of the MMR at the time of the proof generation (i.e., leaves count).
     fn verify_historical_mmr_inclusion(
         self: @TContractState,
         index: usize,
@@ -41,6 +70,11 @@ trait IHeadersStore<TContractState> {
         last_pos: usize,
     ) -> bool;
 
+    // Processes a received block and appends it to the MMR with the given id.
+    // @param block_number The block number of the received block.
+    // @param header_rlp The RLP of the block header.
+    // @param mmr_peaks The peaks of the MMR.
+    // @param mmr_id The id of the MMR.
     fn process_received_block(
         ref self: TContractState,
         block_number: u256,
@@ -49,6 +83,13 @@ trait IHeadersStore<TContractState> {
         mmr_id: usize,
     );
 
+    // Processes a batch of received blocks and appends them to the MMR with the given id.
+    // @param headers_rlp The RLP of the block headers.
+    // @param mmr_peaks The peaks of the MMR.
+    // @param mmr_id The id of the MMR.
+    // @param reference_block The block number of a received block used as reference to process the batch.
+    // @param mmr_index The MMR index of an existing block used as reference to process the batch.
+    // @param mmr_proof The inclusion proof of the reference block.
     fn process_batch(
         ref self: TContractState,
         headers_rlp: Span<Words64>,
@@ -59,8 +100,16 @@ trait IHeadersStore<TContractState> {
         mmr_proof: Option<Proof>,
     );
 
+    // Creates a new MMR with the given root and size based from a provied `root` and `last_pos`.
+    // @notice Only the CommitmentsInbox contract can call this function.
     fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
 
+    // Creates a new MMR with a single element based on another MMR.
+    // @param index The index of the element in the MMR.
+    // @param initial_poseidon_blockhash The Poseidon hash of the blockhash.
+    // @param peaks The peaks of the MMR.
+    // @param proof The inclusion proof (i.e., siblings path to the root hash).
+    // @param mmr_id The id of the MMR.
     fn create_branch_single_element(
         ref self: TContractState,
         index: usize,
@@ -70,8 +119,14 @@ trait IHeadersStore<TContractState> {
         mmr_id: usize,
     );
 
+    // Creates a new MMR with the same root and size as the MMR with the given id.
     fn create_branch_from(ref self: TContractState, mmr_id: usize);
 }
+
+
+//
+// Contract
+//
 
 #[starknet::contract]
 mod HeadersStore {
@@ -85,8 +140,16 @@ mod HeadersStore {
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
 
+    //
+    // Constants
+    //
+
     const MMR_INITIAL_ROOT: felt252 =
         0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
+
+    //
+    // Storage
+    //
 
     #[storage]
     struct Storage {
@@ -97,6 +160,10 @@ mod HeadersStore {
         received_blocks: LegacyMap::<u256, u256>,
         latest_mmr_id: usize
     }
+
+    //
+    // Events
+    //
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -148,6 +215,11 @@ mod HeadersStore {
         self.mmr_history.write((0, 1), root);
         self.latest_mmr_id.write(0);
     }
+
+
+    //
+    // External
+    //
 
     #[external(v0)]
     impl HeadersStore of super::IHeadersStore<ContractState> {
@@ -368,7 +440,6 @@ mod HeadersStore {
             self.mmr_history.write((latest_mmr_id, last_pos), root);
             self.latest_mmr_id.write(latest_mmr_id);
 
-            // TODO review event
             self
                 .emit(
                     Event::BranchCreated(BranchCreated { mmr_id: latest_mmr_id, root, last_pos })

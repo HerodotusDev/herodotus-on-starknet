@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+
 use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,

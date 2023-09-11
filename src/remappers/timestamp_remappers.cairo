@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-3.0
+
+//
+// Contract
+//
+
 #[starknet::contract]
 mod TimestampRemappers {
     use herodotus_eth_starknet::remappers::interface::{
@@ -5,8 +11,9 @@ mod TimestampRemappers {
         BinarySearchTree
     };
     use starknet::ContractAddress;
-    use cairo_lib::hashing::poseidon::PoseidonHasher;
+    use cairo_lib::hashing::poseidon::{PoseidonHasher, hash_words64};
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
+    use cairo_lib::data_structures::mmr::utils::{leaf_index_to_mmr_index};
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
     use cairo_lib::utils::types::words64::{reverse_endianness_u64, bytes_used_u64};
     use herodotus_eth_starknet::core::headers_store::{
@@ -134,7 +141,7 @@ mod TimestampRemappers {
                 assert(origin_element_block_number == expected_block, 'Unexpected block number');
 
                 // 2. Verify that the header rlp is correct (i.e., matching with the leaf value)
-                let current_hash = InternalFunctions::poseidon_hash_rlp(*origin_element.header);
+                let current_hash = hash_words64(*origin_element.header);
                 assert(current_hash == *origin_element.leaf_value.into(), 'Invalid header rlp');
 
                 // 3. Verify that the inclusion proof of the leaf is valid
@@ -234,7 +241,6 @@ mod TimestampRemappers {
             let (block_number, timestamp) = match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
-                    // TODO: add error handling
                     (
                         (*(*l.at(BLOCK_NUMBER_OFFSET_IN_HEADER_RLP)).at(0)),
                         (*(*l.at(TIMESTAMP_OFFSET_IN_HEADER_RLP)).at(0))
@@ -249,24 +255,6 @@ mod TimestampRemappers {
                 reverse_endianness_u64(timestamp, Option::Some(bytes_used_u64(timestamp).into()))
                     .into()
             )
-        }
-
-        // TODO: port to cairo-lib
-        fn count_ones(n: u256) -> u256 {
-            let mut n = n;
-            let mut count = 0;
-            loop {
-                if n == 0 {
-                    break count;
-                }
-                n = n & (n - 1);
-                count += 1;
-            }
-        }
-
-        // TODO: port to cairo-lib
-        fn leaf_index_to_mmr_index(n: u256) -> u256 {
-            2 * n - 1 - InternalFunctions::count_ones(n - 1)
         }
 
         // Performs a binary search on the elements (i.e., timestamps) contained in the mapper MMR.
@@ -314,8 +302,7 @@ mod TimestampRemappers {
                 let mid: u256 = (left + right) / 2;
                 let proof_element: @ProofElement = proofs.at(proof_idx);
                 assert(
-                    (*proof_element.index)
-                        .into() == InternalFunctions::leaf_index_to_mmr_index(mid + 1),
+                    (*proof_element.index).into() == leaf_index_to_mmr_index(mid + 1),
                     'Unexpected proof index'
                 );
 
@@ -345,9 +332,7 @@ mod TimestampRemappers {
             let tree_closest_low_val = tree.left_neighbor.unwrap();
 
             assert(
-                tree_closest_low_val
-                    .index
-                    .into() == InternalFunctions::leaf_index_to_mmr_index(closest_idx + 1),
+                tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
                 'Unexpected proof index (c)'
             );
 
@@ -363,22 +348,6 @@ mod TimestampRemappers {
             assert(is_valid_low_proof, 'Invalid proof');
 
             return Option::Some(closest_idx);
-        }
-
-        fn poseidon_hash_rlp(rlp: Words64) -> felt252 {
-            // TODO refactor hashing logic
-            let mut rlp_felt_arr: Array<felt252> = ArrayTrait::new();
-            let mut i: usize = 0;
-            loop {
-                if i >= rlp.len() {
-                    break ();
-                }
-
-                rlp_felt_arr.append((*rlp.at(i)).into());
-                i += 1;
-            };
-
-            PoseidonHasher::hash_many(rlp_felt_arr.span())
         }
     }
 }

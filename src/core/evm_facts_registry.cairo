@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+
 use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
@@ -11,17 +13,35 @@ enum AccountField {
     Nonce: ()
 }
 
+//
+// Interface
+//
+
 #[starknet::interface]
 trait IEVMFactsRegistry<TContractState> {
+    // Returns the address of the contract that stores the headers.
     fn get_headers_store(self: @TContractState) -> ContractAddress;
 
+    // Returns the value of the given field of the given account at the given block.
     fn get_account_field(
         self: @TContractState, account: felt252, block: u256, field: AccountField
     ) -> Option<u256>;
+
+    // Returns the value of the given slot of the given account at the given block.
     fn get_slot_value(
         self: @TContractState, account: felt252, block: u256, slot: u256
     ) -> Option<u256>;
 
+    // Returns the value of the given field(s) of the given account at the given block.
+    // @param fields: The fields to return.
+    // @param block_header_rlp: The RLP of the block header.
+    // @param account: The account to query.
+    // @param mpt_proof: The MPT proof of the account.
+    // @param mmr_index: The index of the block in the MMR.
+    // @param mmr_peaks: The peaks of the MMR.
+    // @param mmr_proof: The proof of the MMR.
+    // @param mmr_id: The id of the MMR.
+    // @param last_pos The size of the MMR at the time of the proof generation (i.e., leaves count).
     fn get_account(
         self: @TContractState,
         fields: Span<AccountField>,
@@ -32,7 +52,15 @@ trait IEVMFactsRegistry<TContractState> {
         mmr_peaks: Peaks,
         mmr_proof: Proof,
         mmr_id: usize,
+        last_pos: usize,
     ) -> Span<u256>;
+
+    // Returns the value of the given slot of the given account at the given block.
+    // @param block: The block number.
+    // @param account: The account to query.
+    // @param slot: The slot to query.
+    // @param slot_len: The length of the slot.
+    // @param mpt_proof: The MPT proof of the account.
     fn get_storage(
         self: @TContractState,
         block: u256,
@@ -42,6 +70,16 @@ trait IEVMFactsRegistry<TContractState> {
         mpt_proof: Span<Words64>
     ) -> u256;
 
+    // Proves the value of the given field(s) of the given account at the given block.
+    // @param fields: The fields to prove.
+    // @param block_header_rlp: The RLP of the block header.
+    // @param account: The account to prove.
+    // @param mpt_proof: The MPT proof of the account.
+    // @param mmr_index: The index of the block in the MMR.
+    // @param mmr_peaks: The peaks of the MMR.
+    // @param mmr_proof: The proof of the MMR.
+    // @param mmr_id: The id of the MMR.
+    // @param last_pos The size of the MMR at the time of the proof generation (i.e., leaves count).
     fn prove_account(
         ref self: TContractState,
         fields: Span<AccountField>,
@@ -52,7 +90,15 @@ trait IEVMFactsRegistry<TContractState> {
         mmr_peaks: Peaks,
         mmr_proof: Proof,
         mmr_id: usize,
+        last_pos: usize,
     );
+
+    // Proves the value of the given slot of the given account at the given block.
+    // @param block: The block number.
+    // @param account: The account to prove.
+    // @param slot: The slot to prove.
+    // @param slot_len: The length of the slot.
+    // @param mpt_proof: The MPT proof of the account.
     fn prove_storage(
         ref self: TContractState,
         block: u256,
@@ -62,6 +108,10 @@ trait IEVMFactsRegistry<TContractState> {
         mpt_proof: Span<Words64>
     );
 }
+
+//
+// Contract
+//
 
 #[starknet::contract]
 mod EVMFactsRegistry {
@@ -77,6 +127,10 @@ mod EVMFactsRegistry {
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
 
+    //
+    // Storage
+    //
+
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
@@ -89,6 +143,10 @@ mod EVMFactsRegistry {
         // (account_address, block_number, slot) => value
         slot_values: LegacyMap::<(felt252, u256, u256), Option<u256>>
     }
+
+    //
+    // Events
+    //
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -116,6 +174,10 @@ mod EVMFactsRegistry {
     fn constructor(ref self: ContractState, headers_store: ContractAddress) {
         self.headers_store.write(headers_store);
     }
+
+    //
+    // External
+    //
 
     #[external(v0)]
     impl EVMFactsRegistry of super::IEVMFactsRegistry<ContractState> {
@@ -150,6 +212,7 @@ mod EVMFactsRegistry {
             mmr_peaks: Peaks,
             mmr_proof: Proof,
             mmr_id: usize,
+            last_pos: usize,
         ) -> Span<u256> {
             let (_, fields) = InternalFunctions::get_account(
                 self,
@@ -160,7 +223,8 @@ mod EVMFactsRegistry {
                 mmr_index,
                 mmr_peaks,
                 mmr_proof,
-                mmr_id
+                mmr_id,
+                last_pos
             );
 
             fields
@@ -196,6 +260,7 @@ mod EVMFactsRegistry {
             mmr_peaks: Peaks,
             mmr_proof: Proof,
             mmr_id: usize,
+            last_pos: usize,
         ) {
             let (block, field_values) = InternalFunctions::get_account(
                 @self,
@@ -206,7 +271,8 @@ mod EVMFactsRegistry {
                 mmr_index,
                 mmr_peaks,
                 mmr_proof,
-                mmr_id
+                mmr_id,
+                last_pos
             );
 
             let mut i: usize = 0;
@@ -269,12 +335,15 @@ mod EVMFactsRegistry {
             mmr_peaks: Peaks,
             mmr_proof: Proof,
             mmr_id: usize,
+            last_pos: usize,
         ) -> (u256, Span<u256>) {
             let blockhash = hash_words64(block_header_rlp);
 
             let contract_address = self.headers_store.read();
             let mmr_inclusion = IHeadersStoreDispatcher { contract_address }
-                .verify_mmr_inclusion(mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id);
+                .verify_historical_mmr_inclusion(
+                    mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id, last_pos
+                );
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
             let (decoded_rlp, _) = rlp_decode(block_header_rlp).unwrap();

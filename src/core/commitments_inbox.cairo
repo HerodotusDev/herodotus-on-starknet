@@ -1,21 +1,33 @@
+// SPDX-License-Identifier: GPL-3.0
+
 use starknet::{ContractAddress, EthAddress};
+
+//
+// Interface
+//
 
 #[starknet::interface]
 trait ICommitmentsInbox<TContractState> {
+    // Getters
     fn get_headers_store(self: @TContractState) -> ContractAddress;
     fn get_l1_message_sender(self: @TContractState) -> EthAddress;
     fn get_owner(self: @TContractState) -> ContractAddress;
 
-    // Commitments inbox and headers store need each other's address, egg and chicken problem
+    // Setters
     fn set_headers_store(ref self: TContractState, headers_store: ContractAddress);
-    // Same for L1 message sender
     fn set_l1_message_sender(ref self: TContractState, l1_message_sender: EthAddress);
 
+    // Ownership
     fn transfer_ownership(ref self: TContractState, new_owner: ContractAddress);
     fn renounce_ownership(ref self: TContractState);
 
+    // Receives a hash commitment from the contract owner
     fn receive_commitment_owner(ref self: TContractState, blockhash: u256, block_number: u256);
 }
+
+//
+// Contract
+//
 
 #[starknet::contract]
 mod CommitmentsInbox {
@@ -24,12 +36,20 @@ mod CommitmentsInbox {
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
 
+    //
+    // Storage
+    //
+
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
         l1_message_sender: EthAddress,
         owner: ContractAddress
     }
+
+    //
+    // Events
+    //
 
     #[event]
     #[derive(Drop, starknet::Event)]

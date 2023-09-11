@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+
 // Performs a binary search for `x` on `arr`.
 // Returns the index of the closest element to `x` on the left side
 // (or the index of `x` in case of exact match).
