@@ -134,7 +134,7 @@ mod HeadersStore {
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::data_structures::mmr::proof::Proof;
-    use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
+    use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE, reverse_endianness_u64, bytes_used_u64};
     use cairo_lib::hashing::keccak::keccak_cairo_words64;
     use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
@@ -276,7 +276,7 @@ mod HeadersStore {
             let poseidon_hash = hash_words64(header_rlp);
 
             let mut mmr = self.mmr.read(mmr_id);
-            mmr.append(poseidon_hash, mmr_peaks).unwrap();
+            mmr.append(poseidon_hash, mmr_peaks).expect('Failed to append to MMR');
             self.mmr.write(mmr_id, mmr.clone());
 
             self.mmr_history.write((mmr_id, mmr.last_pos), mmr.root);
@@ -308,7 +308,7 @@ mod HeadersStore {
             if mmr_proof.is_some() {
                 let valid_proof = mmr
                     .verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap())
-                    .unwrap();
+                    .expect('MMR proof verification failed');
                 assert(valid_proof, 'Invalid proof');
             } else {
                 start_block = reference_block.unwrap();
@@ -318,7 +318,7 @@ mod HeadersStore {
                 let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), true);
                 assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
-                let (_, p) = mmr.append(poseidon_hash, mmr_peaks).unwrap();
+                let (_, p) = mmr.append(poseidon_hash, mmr_peaks).expect('Failed to append to MMR');
                 peaks = p;
             }
 
@@ -329,14 +329,16 @@ mod HeadersStore {
                 }
 
                 let child_rlp = *headers_rlp.at(i - 1);
-                // TODO error handling
-                let (decoded_rlp, _) = rlp_decode(child_rlp).unwrap();
+                let (decoded_rlp, _) = rlp_decode(child_rlp).expect('Invalid header rlp');
                 let parent_hash: u256 = match decoded_rlp {
                     RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                     RLPItem::List(l) => {
                         if i == 1 && reference_block.is_none() {
-                            // reverse endianness
-                            start_block = (*l.at(8)).try_into().unwrap();
+                            let start_block_words = *l.at(8);
+                            assert (start_block_words.len() == 1, 'Invalid start_block');
+
+                            let start_block_le = *start_block_words.at(0);
+                            start_block = reverse_endianness_u64(start_block_le, Option::Some(bytes_used_u64(start_block_le))).into();
                         }
                         let words = *l.at(0);
                         assert(words.len() == 4, 'Invalid parent_hash rlp');
@@ -350,7 +352,7 @@ mod HeadersStore {
 
                 let poseidon_hash = hash_words64(current_rlp);
 
-                let (_, p) = mmr.append(poseidon_hash, peaks).unwrap();
+                let (_, p) = mmr.append(poseidon_hash, peaks).expect('Failed to append to MMR');
                 peaks = p;
 
                 i += 1;
@@ -383,7 +385,7 @@ mod HeadersStore {
         ) -> bool {
             let mmr = self.mmr.read(mmr_id);
 
-            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).unwrap()
+            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).expect('MMR proof verification failed')
         }
 
         fn verify_historical_mmr_inclusion(
@@ -398,7 +400,7 @@ mod HeadersStore {
             let root = self.mmr_history.read((mmr_id, last_pos));
             let mmr = MMRTrait::new(root, last_pos);
 
-            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).unwrap()
+            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).expect('MMR proof verification failed')
         }
 
         fn create_branch_from_message(ref self: ContractState, root: felt252, last_pos: usize) {

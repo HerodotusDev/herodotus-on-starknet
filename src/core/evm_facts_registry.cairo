@@ -122,7 +122,7 @@ mod EVMFactsRegistry {
     use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::data_structures::eth_mpt::MPTTrait;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
-    use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE};
+    use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE, reverse_endianness_u64, bytes_used_u64};
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
@@ -244,8 +244,7 @@ mod EVMFactsRegistry {
                 .expect('Storage hash not proven');
 
             let mpt = MPTTrait::new(storage_hash);
-            // TODO error handling
-            let value = mpt.verify(slot, slot_len, mpt_proof).unwrap();
+            let value = mpt.verify(slot, slot_len, mpt_proof).expect('MPT verification failed');
 
             value.try_into().unwrap()
         }
@@ -346,22 +345,26 @@ mod EVMFactsRegistry {
                 );
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
-            let (decoded_rlp, _) = rlp_decode(block_header_rlp).unwrap();
+            let (decoded_rlp, _) = rlp_decode(block_header_rlp).expect('Invalid header rlp');
             let mut state_root: u256 = 0;
             let mut block_number: u256 = 0;
             match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
                     state_root = (*l.at(3)).try_into().unwrap();
-                    block_number = (*l.at(8)).try_into().unwrap();
+
+                    let block_number_words = *l.at(8);
+                    assert (block_number_words.len() == 1, 'Invalid block number');
+
+                    let block_number_le = *block_number_words.at(0);
+                    block_number = reverse_endianness_u64(block_number_le, Option::Some(bytes_used_u64(block_number_le))).into();
                 },
             };
 
             let mpt = MPTTrait::new(state_root);
-            // TODO error handling
-            let rlp_account = mpt.verify(account.into(), 32, mpt_proof).unwrap();
+            let rlp_account = mpt.verify(account.into(), 32, mpt_proof).expect('MPT verification failed');
 
-            let (decoded_account, _) = rlp_decode(rlp_account).unwrap();
+            let (decoded_account, _) = rlp_decode(rlp_account).expect('Invalid account rlp');
             let mut account_fields = ArrayTrait::new();
             match decoded_account {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid account rlp'),
@@ -373,24 +376,22 @@ mod EVMFactsRegistry {
                         }
 
                         let field = fields.at(i);
-                        match field {
+                        let field_value = match field {
                             AccountField::StorageHash(_) => {
-                                let storage_hash = (*l.at(2)).try_into().unwrap();
-                                account_fields.append(storage_hash);
+                                *l.at(2)
                             },
                             AccountField::CodeHash(_) => {
-                                let code_hash = (*l.at(3)).try_into().unwrap();
-                                account_fields.append(code_hash);
+                                *l.at(3)
                             },
                             AccountField::Balance(_) => {
-                                let balance = (*l.at(0)).try_into().unwrap();
-                                account_fields.append(balance);
+                                *l.at(0)
                             },
                             AccountField::Nonce(_) => {
-                                let nonce = (*l.at(1)).try_into().unwrap();
-                                account_fields.append(nonce);
+                                *l.at(1)
                             },
                         };
+
+                        account_fields.append(field_value.try_into().unwrap());
 
                         i += 1;
                     };
