@@ -50,7 +50,7 @@ mod TurboSwap {
         IEVMFactsRegistryDispatcher, IEVMFactsRegistryDispatcherTrait, AccountField
     };
     use cairo_lib::utils::types::words64::{Words64, Words64Trait};
-    use cairo_lib::encoding::rlp_word64::{rlp_decode_word64, RLPItemWord64};
+    use cairo_lib::encoding::rlp::{rlp_decode, RLPItem};
 
     #[storage]
     struct Storage {
@@ -193,15 +193,15 @@ mod TurboSwap {
                         *attestation.inclusion_proof
                     ) {
                     Result::Ok(_) => {
-                        match rlp_decode_word64(*attestation.header_serialized) {
+                        match rlp_decode(*attestation.header_serialized) {
                             Result::Ok((
                                 decoded_data, len
                             )) => {
                                 match decoded_data {
-                                    RLPItemWord64::Bytes => {
+                                    RLPItem::Bytes => {
                                         panic_with_felt252('Unexpected rlp match');
                                     },
-                                    RLPItemWord64::List(rlp_data_list) => {
+                                    RLPItem::List(rlp_data_list) => {
                                         assert(
                                             rlp_data_list.at(8).len() == 1,
                                             'Block number does not fit' // TODO improve msg
@@ -300,7 +300,7 @@ mod TurboSwap {
 
                 let attestation = attestations.at(i);
 
-                let facts_registry = InternalFunctions::_get_facts_registry_for_chain(ref self, attestation.chainId);
+                let facts_registry = InternalFunctions::_get_facts_registry_for_chain(ref self, *attestation.chainId);
                 assert(
                     facts_registry.contract_address != starknet::contract_address_const::<0>(),
                     'TurboSwap: Unknown chain id'
@@ -309,7 +309,7 @@ mod TurboSwap {
                     .get_slot_value(
                         *attestation.account, *attestation.block_number, *attestation.slot
                     ) {
-                    Result::Ok(account_address) => {
+                    Option::Some(account_address) => {
                         let value = account_address;
 
                         self
@@ -324,7 +324,7 @@ mod TurboSwap {
                                 value
                             );
                     },
-                    Result::Err(_) => {
+                    Option::None(_) => {
                         assert(false, 'ERR_REGISTRY_DATA_READ')
                     }
                 };
@@ -393,12 +393,12 @@ mod TurboSwap {
                                     *attestation.block_number,
                                     AccountField::Nonce
                                 ) {
-                                Result::Ok(account_value) => {
-                                    value = account;
-                                },
-                                Result::Err(_) => {
-                                    assert(false, 'ERR_REGISTRY_DATA_READ')
-                                }
+                                    Option::Some(registry_value) => {
+                                        value = registry_value;
+                                    },
+                                    Option::None(_) => {
+                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
+                                    }
                                 };
                         } else if (property_uint == 1) {
                             match facts_registry
@@ -406,12 +406,12 @@ mod TurboSwap {
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::Balance
-                                ) {
-                                    Result::Ok(account_value) => {
-                                        value = account;
+                                )  {
+                                    Option::Some(registry_value) => {
+                                        value = registry_value;
                                     },
-                                    Result::Err(_) => {
-                                        assert(false, 'ERR_REGISTRY_DATA_READ')
+                                    Option::None(_) => {
+                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
                                     }
                                 };
                         } else if (property_uint == 2) {
@@ -420,12 +420,12 @@ mod TurboSwap {
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::StorageHash
-                                ) => {
-                                    Result::Ok(account_value) => {
-                                        value = account;
+                                )  {
+                                    Option::Some(registry_value) => {
+                                        value = registry_value;
                                     },
-                                    Result::Err(_) => {
-                                        assert(false, 'ERR_REGISTRY_DATA_READ')
+                                    Option::None(_) => {
+                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
                                     }
                                 };
                         } else if (property_uint == 3) {
@@ -434,12 +434,12 @@ mod TurboSwap {
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::CodeHash
-                                ) => {
-                                    Result::Ok(account_value) => {
-                                        value = account;
+                                ) {
+                                    Option::Some(registry_value) => {
+                                        value = registry_value;
                                     },
-                                    Result::Err(_) => {
-                                        assert(false, 'ERR_REGISTRY_DATA_READ')
+                                    Option::None(_) => {
+                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
                                     }
                                 };
                         } else {
@@ -516,7 +516,7 @@ mod TurboSwap {
             slot: u256
         ) -> u256 {
             let value = self._storage_slots.read((chain_id, block_number, account, slot));
-            assert(value != 0, 'TurboSwap: Storage slot not set');
+            assert(value != 0, 'Storage slot not set');
             value
         }
 
@@ -528,15 +528,15 @@ mod TurboSwap {
             property: u256
         ) -> u256 {
             let value = self._accounts.read((chain_id, block_number, account, property));
-            assert(value != 0, 'TurboSwap: Account property not set');
+            assert(value != 0, 'Account property not set');
             value
         }
 
         fn headers(
             ref self: ContractState, chain_id: u256, block_number: u256, property: u256
         ) -> u256 {
-            let value = self._headers.read((chain_id, block_number, account, property));
-            assert(value != 0, 'TurboSwap: Account property not set');
+            let value = self._headers.read((chain_id, block_number, property));
+            assert(value != 0, 'Account property not set');
             value
         }
     }
