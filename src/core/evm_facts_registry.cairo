@@ -122,7 +122,9 @@ mod EVMFactsRegistry {
     use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::data_structures::eth_mpt::MPTTrait;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
-    use cairo_lib::utils::types::words64::{Words64, Words64TryIntoU256LE, reverse_endianness_u64, bytes_used_u64};
+    use cairo_lib::utils::types::words64::{
+        Words64, Words64TryIntoU256LE, reverse_endianness_u64, bytes_used_u64
+    };
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
@@ -354,15 +356,21 @@ mod EVMFactsRegistry {
                     state_root = (*l.at(3)).try_into().unwrap();
 
                     let block_number_words = *l.at(8);
-                    assert (block_number_words.len() == 1, 'Invalid block number');
+                    assert(block_number_words.len() == 1, 'Invalid block number');
 
                     let block_number_le = *block_number_words.at(0);
-                    block_number = reverse_endianness_u64(block_number_le, Option::Some(bytes_used_u64(block_number_le))).into();
+                    block_number =
+                        reverse_endianness_u64(
+                            block_number_le, Option::Some(bytes_used_u64(block_number_le))
+                        )
+                        .into();
                 },
             };
 
             let mpt = MPTTrait::new(state_root);
-            let rlp_account = mpt.verify(account.into(), 32, mpt_proof).expect('MPT verification failed');
+            let rlp_account = mpt
+                .verify(account.into(), 32, mpt_proof)
+                .expect('MPT verification failed');
 
             let (decoded_account, _) = rlp_decode(rlp_account).expect('Invalid account rlp');
             let mut account_fields = ArrayTrait::new();
