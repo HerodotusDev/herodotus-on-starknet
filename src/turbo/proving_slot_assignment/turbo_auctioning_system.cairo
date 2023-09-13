@@ -13,7 +13,6 @@ trait ITurboAuctioningSystem<TContractState> {
         bidder_address: starknet::ContractAddress,
         bids: Array<TurboAuctioningSystem::SlotAssignmentBid>
     );
-    fn upgrade(ref self: TContractState, impl_hash: starknet::class_hash::ClassHash);
 }
 
 #[starknet::interface]
@@ -86,7 +85,6 @@ mod TurboAuctioningSystem {
     #[derive(Drop, starknet::Event)]
     enum Event {
         SlotAssigned: SlotAssigned,
-        Upgraded: Upgraded
     }
 
     #[derive(Drop, starknet::Event)]
@@ -94,11 +92,6 @@ mod TurboAuctioningSystem {
         slotId: u256,
         assignee: ContractAddress,
         winningBidAmount: u256
-    }
-
-    #[derive(Drop, starknet::Event)]
-    struct Upgraded {
-        implementation: ClassHash
     }
 
     // Q: what about doing only-admin? there are no other roles?
@@ -280,12 +273,6 @@ mod TurboAuctioningSystem {
                     assert(false, 'Pub key recovery failed');
                 }
             }
-        }
-
-        fn upgrade(ref self: ContractState, impl_hash: ClassHash) {
-            assert(!impl_hash.is_zero(), 'Class hash cannot be zero');
-            starknet::replace_class_syscall(impl_hash).unwrap_syscall();
-            self.emit(Event::Upgraded(Upgraded { implementation: impl_hash }))
         }
     }
 
