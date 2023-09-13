@@ -127,6 +127,7 @@ mod TimestampRemappers {
             let mut idx = 0;
             let len = origin_elements.len(); // Count of elements in the batch to append
             let mut last_timestamp = 0; // Local to this batch
+            let mut peaks = mapper_peaks;
             loop {
                 if idx == len {
                     break ();
@@ -159,7 +160,10 @@ mod TimestampRemappers {
                 assert(is_valid_proof, 'Invalid proof');
 
                 // Add the block timestamp to the mapper MMR so we can binary search it later
-                mapper_mmr.append(origin_element_timestamp.try_into().unwrap(), mapper_peaks);
+                let (_, p) = mapper_mmr
+                    .append(origin_element_timestamp.try_into().unwrap(), peaks)
+                    .unwrap();
+                peaks = p;
 
                 // Update storage to the last timestamp of the batch
                 if idx == len - 1 {
