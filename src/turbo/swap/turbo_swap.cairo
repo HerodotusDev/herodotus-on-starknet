@@ -1,3 +1,6 @@
+/// @title ITurboSwap Trait
+/// @notice This trait defines the interface for the TurboSwap contract.
+/// @dev This interface contains functions for setting and clearing header, storage slot and account properties,
 #[starknet::interface]
 trait ITurboSwap<TContractState> {
     fn set_multiple_header_props(
@@ -62,6 +65,7 @@ mod TurboSwap {
         _storage_slots: LegacyMap::<(u256, u256, felt252, u256), u256>
     }
 
+    /// @notice Represents a header property type.
     #[derive(Drop, Serde)]
     enum HeaderProperty {
         TIMESTAMP: (),
@@ -74,6 +78,7 @@ mod TurboSwap {
         MIX_HASH: ()
     }
 
+    /// @notice Represents an account property type.
     #[derive(Drop, Serde)]
     enum AccountProperty {
         NONCE: (),
@@ -82,13 +87,14 @@ mod TurboSwap {
         CODE_HASH: ()
     }
 
+    /// @notice Represents a property, which can be either a header property or an account property.
     #[derive(Drop, Serde)]
     enum Property {
         Account: AccountProperty,
         Header: HeaderProperty,
     }
 
-
+    /// @notice Represents a header properties attestation.
     #[derive(Drop, Serde)]
     struct HeaderPropertiesAttestation {
         chain_id: u256,
@@ -104,6 +110,7 @@ mod TurboSwap {
         header_serialized: Words64
     }
 
+    /// @notice Represents a header reset.
     #[derive(Drop, Serde)]
     struct HeaderReset {
         chain_id: u256,
@@ -111,6 +118,7 @@ mod TurboSwap {
         properties: Span<Property>
     }
 
+    /// @notice Represents a storage slot attestation.
     #[derive(Drop, Serde)]
     struct StorageSlotAttestation {
         chainId: u256,
@@ -119,7 +127,7 @@ mod TurboSwap {
         slot: u256
     }
 
-
+    /// @notice Represents an account attestation.
     #[derive(Drop, Serde)]
     struct AccountAttestation {
         chain_id: u256,
@@ -128,19 +136,21 @@ mod TurboSwap {
         property: Property
     }
 
-
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
         Upgraded: Upgraded
     }
 
+    /// @notice Represents an upgrade event.
+    /// @param implemention Class hash of the new contract
     #[derive(Drop, starknet::Event)]
     struct Upgraded {
         implementation: ClassHash
     }
 
-
+    /// @notice TurboSwap contract constructor.
+    /// @param _auctioning_system Contract address of the Turbo auctioning contract
     #[constructor]
     fn constructor(ref self: ContractState, _auctioning_system: ContractAddress) {
         self.auctioning_system.write(_auctioning_system);
@@ -148,6 +158,8 @@ mod TurboSwap {
 
     #[external(v0)]
     impl TurboSwap of super::ITurboSwap<ContractState> {
+        /// @notice Sets multiple header properties.
+        /// @param attestations A span of `HeaderPropertiesAttestation` objects containing header property attestations.
         fn set_multiple_header_props(
             ref self: ContractState, attestations: Span<HeaderPropertiesAttestation>
         ) {
@@ -250,6 +262,8 @@ mod TurboSwap {
             }
         }
 
+        /// @notice Clears multiple header slots.
+        /// @param resets A span of `HeaderReset` objects specifying which header properties to reset.
         fn clear_multiple_header_slots(ref self: ContractState, resets: Span<HeaderReset>) {
             assert(
                 get_caller_address() == InternalFunctions::_swap_fullfillment_assignee(ref self),
@@ -284,6 +298,8 @@ mod TurboSwap {
             }
         }
 
+        /// @notice Sets multiple storage slots.
+        /// @param attestations A span of `StorageSlotAttestation` objects containing storage
         fn set_multiple_storage_slots(
             ref self: ContractState, attestations: Span<StorageSlotAttestation>
         ) {
@@ -300,7 +316,9 @@ mod TurboSwap {
 
                 let attestation = attestations.at(i);
 
-                let facts_registry = InternalFunctions::_get_facts_registry_for_chain(ref self, *attestation.chainId);
+                let facts_registry = InternalFunctions::_get_facts_registry_for_chain(
+                    ref self, *attestation.chainId
+                );
                 assert(
                     facts_registry.contract_address != starknet::contract_address_const::<0>(),
                     'TurboSwap: Unknown chain id'
@@ -331,6 +349,9 @@ mod TurboSwap {
             }
         }
 
+
+        /// @notice Clears multiple storage slots.
+        /// @param attestations A span of `StorageSlotAttestation` objects specifying which storage slots to clear.
         fn clear_multiple_storage_slots(
             ref self: ContractState, attestations: Span<StorageSlotAttestation>
         ) {
@@ -360,6 +381,8 @@ mod TurboSwap {
             }
         }
 
+        /// @notice Sets multiple accounts.
+        /// @param attestations A span of `AccountAttestation` objects containing account attestations.
         fn set_multiple_accounts(ref self: ContractState, attestations: Span<AccountAttestation>) {
             assert(
                 get_caller_address() == InternalFunctions::_swap_fullfillment_assignee(ref self),
@@ -393,41 +416,41 @@ mod TurboSwap {
                                     *attestation.block_number,
                                     AccountField::Nonce
                                 ) {
-                                    Option::Some(registry_value) => {
-                                        value = registry_value;
-                                    },
-                                    Option::None(_) => {
-                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
-                                    }
-                                };
+                                Option::Some(registry_value) => {
+                                    value = registry_value;
+                                },
+                                Option::None(_) => {
+                                    assert(false, 'ERR_NO_REGISTRY_VALUE');
+                                }
+                            };
                         } else if (property_uint == 1) {
                             match facts_registry
                                 .get_account_field(
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::Balance
-                                )  {
-                                    Option::Some(registry_value) => {
-                                        value = registry_value;
-                                    },
-                                    Option::None(_) => {
-                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
-                                    }
-                                };
+                                ) {
+                                Option::Some(registry_value) => {
+                                    value = registry_value;
+                                },
+                                Option::None(_) => {
+                                    assert(false, 'ERR_NO_REGISTRY_VALUE');
+                                }
+                            };
                         } else if (property_uint == 2) {
                             match facts_registry
                                 .get_account_field(
                                     *attestation.account,
                                     *attestation.block_number,
                                     AccountField::StorageHash
-                                )  {
-                                    Option::Some(registry_value) => {
-                                        value = registry_value;
-                                    },
-                                    Option::None(_) => {
-                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
-                                    }
-                                };
+                                ) {
+                                Option::Some(registry_value) => {
+                                    value = registry_value;
+                                },
+                                Option::None(_) => {
+                                    assert(false, 'ERR_NO_REGISTRY_VALUE');
+                                }
+                            };
                         } else if (property_uint == 3) {
                             match facts_registry
                                 .get_account_field(
@@ -435,13 +458,13 @@ mod TurboSwap {
                                     *attestation.block_number,
                                     AccountField::CodeHash
                                 ) {
-                                    Option::Some(registry_value) => {
-                                        value = registry_value;
-                                    },
-                                    Option::None(_) => {
-                                        assert(false, 'ERR_NO_REGISTRY_VALUE');
-                                    }
-                                };
+                                Option::Some(registry_value) => {
+                                    value = registry_value;
+                                },
+                                Option::None(_) => {
+                                    assert(false, 'ERR_NO_REGISTRY_VALUE');
+                                }
+                            };
                         } else {
                             assert(false, 'TurboSwap: Unknown property')
                         }
@@ -465,6 +488,8 @@ mod TurboSwap {
             }
         }
 
+        /// @notice Clears multiple accounts.
+        /// @param attestations A span of `AccountAttestation` objects specifying which accounts to clear.
         fn clear_multiple_accounts(
             ref self: ContractState, attestations: Span<AccountAttestation>
         ) {
@@ -501,13 +526,20 @@ mod TurboSwap {
             }
         }
 
-
+        /// @notice Upgrades the contract implementation.
+        /// @param impl_hash The new implementation's class hash.
         fn upgrade(ref self: ContractState, impl_hash: ClassHash) {
             assert(!impl_hash.is_zero(), 'Class hash cannot be zero');
             starknet::replace_class_syscall(impl_hash).unwrap_syscall();
             self.emit(Event::Upgraded(Upgraded { implementation: impl_hash }))
         }
 
+        /// @notice Gets the storage slots value.
+        /// @param chain_id The chain ID.
+        /// @param block_number The block number.
+        /// @param account The account.
+        /// @param slot The storage slot.
+        /// @return The value of the storage slot.
         fn storage_slots(
             ref self: ContractState,
             chain_id: u256,
@@ -520,6 +552,13 @@ mod TurboSwap {
             value
         }
 
+
+        /// @notice Gets the account value.
+        /// @param chain_id The chain ID.
+        /// @param block_number The block number.
+        /// @param account The account.
+        /// @param property The account property.
+        /// @return The value of the account property.
         fn accounts(
             ref self: ContractState,
             chain_id: u256,
@@ -532,6 +571,11 @@ mod TurboSwap {
             value
         }
 
+        /// @notice Gets the header value.
+        /// @param chain_id The chain ID.
+        /// @param block_number The block number.
+        /// @param property The header property.
+        /// @return The value of the header property.
         fn headers(
             ref self: ContractState, chain_id: u256, block_number: u256, property: u256
         ) -> u256 {
@@ -544,21 +588,34 @@ mod TurboSwap {
 
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
+        /// @notice Gets the facts registry contract for a specific chain.
+        /// @param chain_id The chain ID.
+        /// @return The facts registry contract dispatcher with the related address.
         fn _get_facts_registry_for_chain(
             ref self: ContractState, chain_id: u256
         ) -> IEVMFactsRegistryDispatcher {
             IEVMFactsRegistryDispatcher { contract_address: self.facts_registries.read(chain_id) }
         }
+
+        /// @notice Gets the current auctioning assignee from the auctioning contract.
+        /// @return The current assignee's address.
         fn _swap_fullfillment_assignee(ref self: ContractState) -> ContractAddress {
             ITurboAuctioningSystemDispatcher { contract_address: self.auctioning_system.read() }
                 .get_current_assignee()
         }
+
+        /// @notice Gets the headers processor contract for a specific chain.
+        /// @param chain_id The chain ID.
+        /// @return The headers processor contract dispatcher with the related address.
         fn _get_headers_processor_for_chain(
             ref self: ContractState, chain_id: u256
         ) -> IHeadersStoreDispatcher {
             IHeadersStoreDispatcher { contract_address: self.headers_processors.read(chain_id) }
         }
 
+        /// @notice Converts a property enum value to its corresponding u256 value.
+        /// @param enum_value The property enum value.
+        /// @return The corresponding u256 value.
         fn _property_to_uint(enum_value: @Property) -> Result<u256, felt252> {
             match enum_value {
                 Property::Account(v) => {
