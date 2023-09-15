@@ -80,7 +80,8 @@ mod CommitmentsInbox {
     #[derive(Drop, starknet::Event)]
     struct MMRReceived {
         root: felt252,
-        last_pos: usize
+        last_pos: usize,
+        aggregator_id: usize
     }
 
     #[constructor]
@@ -170,12 +171,19 @@ mod CommitmentsInbox {
     }
 
     #[l1_handler]
-    fn receive_mmr(ref self: ContractState, from_address: felt252, root: felt252, last_pos: usize) {
+    fn receive_mmr(
+        ref self: ContractState,
+        from_address: felt252,
+        root: felt252,
+        last_pos: usize,
+        aggregator_id: usize
+    ) {
         assert(from_address == self.l1_message_sender.read().into(), 'Invalid sender');
 
         let contract_address = self.headers_store.read();
-        IHeadersStoreDispatcher { contract_address }.create_branch_from_message(root, last_pos);
+        IHeadersStoreDispatcher { contract_address }
+            .create_branch_from_message(root, last_pos, aggregator_id);
 
-        self.emit(Event::MMRReceived(MMRReceived { root, last_pos }));
+        self.emit(Event::MMRReceived(MMRReceived { root, last_pos, aggregator_id }));
     }
 }
