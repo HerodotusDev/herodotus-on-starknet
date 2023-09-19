@@ -71,7 +71,7 @@ contract L1MessagesSender is Ownable {
         require(mmrSize >= 1, "Invalid tree size");
         require(poseidonMMRRoot != bytes32(0), "Invalid root (Poseidon)");
 
-        _sendPoseidonMMRTreeToL2(poseidonMMRRoot, mmrSize);
+        _sendPoseidonMMRTreeToL2(poseidonMMRRoot, mmrSize, aggregatorId);
     }
 
     function _sendBlockHashToL2(
@@ -97,12 +97,14 @@ contract L1MessagesSender is Ownable {
 
     function _sendPoseidonMMRTreeToL2(
         bytes32 poseidonMMRRoot,
-        uint256 mmrSize
+        uint256 mmrSize,
+        uint256 aggregatorId
     ) internal {
-        uint256[] memory message = new uint256[](2);
+        uint256[] memory message = new uint256[](3);
 
         message[0] = uint256(poseidonMMRRoot);
         message[1] = mmrSize;
+        message[2] = aggregatorId;
 
         // Pass along msg.value
         starknetCore.sendMessageToL2{value: msg.value}(

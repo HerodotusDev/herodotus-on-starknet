@@ -100,9 +100,11 @@ trait IHeadersStore<TContractState> {
         mmr_proof: Option<Proof>,
     );
 
-    // Creates a new MMR with the given root and size based from a provied `root` and `last_pos`.
+    // Creates a new MMR with the given root and size based from a provided `root` and `last_pos`.
     // @notice Only the CommitmentsInbox contract can call this function.
-    fn create_branch_from_message(ref self: TContractState, root: felt252, last_pos: usize);
+    fn create_branch_from_message(
+        ref self: TContractState, root: felt252, last_pos: usize, aggregator_id: usize
+    );
 
     // Creates a new MMR with a single element based on another MMR.
     // @param index The index of the element in the MMR.
@@ -173,7 +175,8 @@ mod HeadersStore {
         HashReceived: HashReceived,
         ProcessedBlock: ProcessedBlock,
         ProcessedBatch: ProcessedBatch,
-        BranchCreated: BranchCreated
+        BranchCreated: BranchCreated,
+        BranchCreatedFromL1: BranchCreatedFromL1
     }
 
     #[derive(Drop, starknet::Event)]
@@ -203,7 +206,16 @@ mod HeadersStore {
     struct BranchCreated {
         mmr_id: usize,
         root: felt252,
-        last_pos: usize
+        last_pos: usize,
+        detached_from_mmr_id: usize,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct BranchCreatedFromL1 {
+        mmr_id: usize,
+        root: felt252,
+        last_pos: usize,
+        aggregator_id: usize,
     }
 
     #[constructor]
@@ -413,7 +425,9 @@ mod HeadersStore {
                 .expect('MMR proof verification failed')
         }
 
-        fn create_branch_from_message(ref self: ContractState, root: felt252, last_pos: usize) {
+        fn create_branch_from_message(
+            ref self: ContractState, root: felt252, last_pos: usize, aggregator_id: usize
+        ) {
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
 
@@ -423,7 +437,12 @@ mod HeadersStore {
             self.mmr_history.write((mmr_id, last_pos), root);
             self.latest_mmr_id.write(mmr_id);
 
-            self.emit(Event::BranchCreated(BranchCreated { mmr_id, root, last_pos }));
+            self
+                .emit(
+                    Event::BranchCreatedFromL1(
+                        BranchCreatedFromL1 { mmr_id, root, last_pos, aggregator_id }
+                    )
+                );
         }
 
         fn create_branch_single_element(
@@ -454,7 +473,11 @@ mod HeadersStore {
 
             self
                 .emit(
-                    Event::BranchCreated(BranchCreated { mmr_id: latest_mmr_id, root, last_pos })
+                    Event::BranchCreated(
+                        BranchCreated {
+                            mmr_id: latest_mmr_id, root, last_pos, detached_from_mmr_id: mmr_id
+                        }
+                    )
                 );
         }
 
@@ -471,7 +494,11 @@ mod HeadersStore {
 
             self
                 .emit(
-                    Event::BranchCreated(BranchCreated { mmr_id: latest_mmr_id, root, last_pos })
+                    Event::BranchCreated(
+                        BranchCreated {
+                            mmr_id: latest_mmr_id, root, last_pos, detached_from_mmr_id: mmr_id
+                        }
+                    )
                 );
         }
     }

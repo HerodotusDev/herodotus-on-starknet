@@ -379,7 +379,7 @@ fn test_remappers() {
     start_prank(headers_store, 0.try_into().unwrap());
     headers_store_dispatcher
         .create_branch_from_message(
-            0x25aedbc0ddea804ce21d29a39f00358f68df0e462114f75b0576182d08db0, 4
+            0x25aedbc0ddea804ce21d29a39f00358f68df0e462114f75b0576182d08db0, 4, 1
         );
     stop_prank(headers_store);
 
