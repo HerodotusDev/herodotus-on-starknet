@@ -11,7 +11,7 @@ trait IDiscoveryMode<TContractState> {
 #[starknet::contract]
 mod DiscoveryMode {
     use starknet::{ContractAddress};
-    use herodotus_eth_starknet::turbo::swap::turbo_swap::{ITurboSwapDispatcher, ITurboSwapDispatcherTrait}
+    use herodotus_eth_starknet::turbo::swap::turbo_swap::{ITurboSwapDispatcher, ITurboSwapDispatcherTrait};
 
 
     #[storage]
@@ -55,7 +55,7 @@ mod DiscoveryMode {
 
 
     #[derive(Drop, starknet::Event)]
-    struct SlotsRead {
+    struct NonExistingSlotsRead {
         nonExistingSlots: Array<felt252>
     }
 
@@ -120,7 +120,7 @@ mod DiscoveryMode {
                 };
                 i = i + 1;
             };
-            self.emit(Event::SlotsRead(SlotsRead { nonExistingSlots }));
+            self.emit(Event::NonExistingSlotsRead(NonExistingSlotsRead { nonExistingSlots }));
         }
 
         fn write_slot(ref self: ContractState, slotKey: felt252, slotValue: felt252) {
@@ -131,6 +131,114 @@ mod DiscoveryMode {
             storage_write_syscall(domain_address, storage_address, slotValue);
             self.emit(Event::SlotWrite(SlotWrite { slotKey, slotValue }));
         }
+    }
+
+}
+
+#[cfg(test)]
+mod test_DiscoveryMode {
+    use super::{
+        TurboSwapDiscoveryMode, ITurboSwapDiscoveryModeDispatcher,
+        ITurboSwapDiscoveryModeDispatcherTrait
+    };
+
+    use starknet::class_hash::{Felt252TryIntoClassHash, class_hash_const};
+    use starknet::{
+        deploy_syscall, ContractAddress, get_caller_address, get_contract_address,
+        contract_address_const
+    };
+    use starknet::testing::{set_caller_address, set_contract_address};
+
+    use option::OptionTrait;
+    use array::ArrayTrait;
+    use traits::TryInto;
+    use result::ResultTrait;
+    use core::array::SpanTrait;
+
+
+    fn deploy_contract() -> (IDiscoveryModeDispatcher, ContractAddress) {
+        let mut calldata = ArrayTrait::new();
+        let (address, _) = deploy_syscall(
+            DiscoveryMode::TEST_CLASS_HASH.try_into().unwrap(), 0, calldata.span(), false
+        )
+            .unwrap();
+        let contract = IDiscoveryModeDispatcher { contract_address: address };
+        (contract, address)
+    }
+
+    fn assert_eq<T, impl TPartialEq: PartialEq<T>>(a: @T, b: @T, err_code: felt252) {
+        assert(a == b, err_code);
+    }
+
+    #[test]
+    #[available_gas(2000000000)]
+    fn test_write_slot() {
+        let (dispatcher, addr) = deploy_contract();
+
+        let slotKey = 1234;
+        let slotValue = 2345;
+        dispatcher.write_slot(slotKey, slotValue);
+
+        let (mut keys, mut data) = starknet::testing::pop_log_raw(addr).unwrap();
+        assert_eq(@keys.len(), @1, 'unexpected event keys size');
+        assert_eq(@data.len(), @2, 'unexpected event data size');
+        assert_eq(data.at(0), @slotKey, 'unexpected slot key');
+        assert_eq(data.at(1), @slotValue, 'unexpected slot key');
+    }
+
+    #[test]
+    #[available_gas(2000000000)]
+    fn test_read_slots() {
+        let (dispatcher, addr) = deploy_contract();
+
+        let mut slotsToRead = ArrayTrait::<felt252>::new();
+        let slotKey1 = 13;
+        let slotKey2 = 37;
+        let slotKey3 = 23;
+
+        slotsToRead.append(slotKey1);
+        slotsToRead.append(slotKey2);
+        slotsToRead.append(slotKey3);
+
+        dispatcher.read_slots(slotsToRead);
+        let (mut keys, mut data) = starknet::testing::pop_log_raw(addr).unwrap();
+        assert_eq(@keys.len(), @1, 'unexpected event keys size');
+        assert_eq(@data.len(), @4, 'unexpected event data size');
+        assert_eq(data.at(0), @3, 'unexpected num of elements');
+        assert_eq(data.at(1), @slotKey1, 'unexpected slot key');
+        assert_eq(data.at(2), @slotKey2, 'unexpected slot key');
+        assert_eq(data.at(3), @slotKey3, 'unexpected slot key');
+    }
+
+
+    #[test]
+    #[available_gas(2000000000)]
+    fn test_write_and_read_slots() {
+        let (dispatcher, addr) = deploy_contract();
+
+        let slotKey1 = 13;
+        let slotKey2 = 37;
+        let slotKey3 = 23;
+
+        dispatcher.write_slot(slotKey2, 45);
+
+        let (mut keys, mut data) = starknet::testing::pop_log_raw(addr).unwrap();
+        assert_eq(@keys.len(), @1, 'unexpected event keys size');
+        assert_eq(@data.len(), @2, 'unexpected event data size');
+
+        let mut slotsToRead = ArrayTrait::<felt252>::new();
+        slotsToRead.append(slotKey1);
+        slotsToRead.append(slotKey2);
+        slotsToRead.append(slotKey3);
+
+        dispatcher.read_slots(slotsToRead);
+
+        let (mut readEventKeys, mut readEventData) = starknet::testing::pop_log_raw(addr).unwrap();
+        assert_eq(@readEventKeys.len(), @1, 'unexpected event keys size');
+        assert_eq(@readEventData.len(), @3, 'unexpected event data size');
+        assert_eq(readEventData.at(0), @2, 'unexpected num of elements');
+        assert_eq(readEventData.at(1), @slotKey1, 'unexpected slot key');
+        assert_eq(readEventData.at(2), @slotKey3, 'unexpected slot key');
     }
 
 }
