@@ -175,7 +175,8 @@ mod HeadersStore {
         HashReceived: HashReceived,
         ProcessedBlock: ProcessedBlock,
         ProcessedBatch: ProcessedBatch,
-        BranchCreated: BranchCreated,
+        BranchCreatedFromElement: BranchCreatedFromElement,
+        BranchCreatedClone: BranchCreatedClone,
         BranchCreatedFromL1: BranchCreatedFromL1
     }
 
@@ -203,11 +204,12 @@ mod HeadersStore {
     }
 
     #[derive(Drop, starknet::Event)]
-    struct BranchCreated {
+    struct BranchCreatedFromElement {
         mmr_id: usize,
         root: felt252,
         last_pos: usize,
         detached_from_mmr_id: usize,
+        mmr_index: usize
     }
 
     #[derive(Drop, starknet::Event)]
@@ -215,7 +217,15 @@ mod HeadersStore {
         mmr_id: usize,
         root: felt252,
         last_pos: usize,
-        aggregator_id: usize,
+        aggregator_id: usize
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct BranchCreatedClone {
+        mmr_id: usize,
+        root: felt252,
+        last_pos: usize,
+        detached_from_mmr_id: usize
     }
 
     #[constructor]
@@ -473,9 +483,13 @@ mod HeadersStore {
 
             self
                 .emit(
-                    Event::BranchCreated(
-                        BranchCreated {
-                            mmr_id: latest_mmr_id, root, last_pos, detached_from_mmr_id: mmr_id
+                    Event::BranchCreatedFromElement(
+                        BranchCreatedFromElement {
+                            mmr_id: latest_mmr_id,
+                            root,
+                            last_pos,
+                            detached_from_mmr_id: mmr_id,
+                            mmr_index: index
                         }
                     )
                 );
@@ -494,8 +508,8 @@ mod HeadersStore {
 
             self
                 .emit(
-                    Event::BranchCreated(
-                        BranchCreated {
+                    Event::BranchCreatedClone(
+                        BranchCreatedClone {
                             mmr_id: latest_mmr_id, root, last_pos, detached_from_mmr_id: mmr_id
                         }
                     )
