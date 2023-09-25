@@ -6,6 +6,7 @@ authors = ["Herodotus Dev"]
 [[target.starknet-contract]]
 sierra = true
 casm = true
+allowed-libfuncs-list.name = "experimental"
 
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest
 

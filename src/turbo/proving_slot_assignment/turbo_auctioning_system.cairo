@@ -58,7 +58,7 @@ mod TurboAuctioningSystem {
     }
 
 
-    #[derive(Copy, Drop, Serde)]
+    #[derive(Copy, Drop, Serde, starknet::Store)]
     struct WithdrawalRequest {
         amount: u256,
         timestamp: u256,
@@ -245,9 +245,7 @@ mod TurboAuctioningSystem {
                     };
 
                     let account_public_key = account_contract.get_public_key();
-                    assert(
-                        account_public_key == rbpk, 'Wrong account address'
-                    );
+                    assert(account_public_key == rbpk, 'Wrong account address');
 
                     assert(
                         self
