@@ -215,12 +215,11 @@ mod TurboSwap {
                                     },
                                     RLPItem::List(rlp_data_list) => {
                                         assert(
-                                            rlp_data_list.at(8).len() == 1,
+                                            (*rlp_data_list.at(8)).len() == 1,
                                             'Block number does not fit' // TODO improve msg
                                         );
-                                        let block_number: u256 = rlp_data_list
-                                            .at(8)
-                                            .at(0); // TODO this is only assumption, modify!
+                                        let block_number: u256 = (*(*rlp_data_list.at(8)).at(0))
+                                            .into(); // TODO this is only assumption, modify!
 
                                         let mut j = 0;
                                         loop {
