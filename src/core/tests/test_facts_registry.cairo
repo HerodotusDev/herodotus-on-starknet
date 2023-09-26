@@ -1,138 +1,85 @@
-// SPDX-License-Identifier: GPL-3.0
-
 use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
-use herodotus_eth_starknet::core::headers_store::{
-    IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
-    IHeadersStoreSafeDispatcher
-};
+
+use herodotus_eth_starknet::core::headers_store::{IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher};
+use herodotus_eth_starknet::core::evm_facts_registry::{IEVMFactsRegistryDispatcherTrait, IEVMFactsRegistryDispatcher, AccountField};
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
+use cairo_lib::hashing::poseidon::{hash_words64, PoseidonHasher};
+use cairo_lib::data_structures::mmr::{proof::Proof, peaks::Peaks};
+use debug::PrintTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
-const MMR_INITIAL_ELEMENT: felt252 =
-    0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
-const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
+const TEST_MMR_ROOT: felt252 = 0x37a31db9c80c54ec632f04f7984155dc43591a3f8c891adfbf34e75331e0eec;
+const TEST_MMR_SIZE: usize = 8;
 
-fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
+fn helper_create_facts_registry(mmr_root: felt252, mmr_size: usize) -> (IEVMFactsRegistryDispatcher, ContractAddress) {
     let class_hash = declare('HeadersStore');
     let prepared = PreparedContract {
         class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
     };
     let contract_address = deploy(prepared).unwrap();
-    (IHeadersStoreDispatcher { contract_address }, contract_address)
-}
-
-fn helper_create_safe_headers_store() -> (IHeadersStoreSafeDispatcher, ContractAddress) {
-    let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
-    };
-    let contract_address = deploy(prepared).unwrap();
-    (IHeadersStoreSafeDispatcher { contract_address }, contract_address)
-}
-
-fn helper_receive_hash(
-    blockhash: u256,
-    block_number: u256,
-    dispatcher: IHeadersStoreDispatcher,
-    contract_address: ContractAddress
-) {
+    let mut headers_store = IHeadersStoreDispatcher { contract_address };
     start_prank(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
-    dispatcher.receive_hash(blockhash, block_number);
+    headers_store.create_branch_from_message(mmr_root, mmr_size, 0);
     stop_prank(contract_address);
+
+    let class_hash = declare('EVMFactsRegistry');
+    let prepared = PreparedContract {
+        class_hash: class_hash, constructor_calldata: @array![contract_address.into()]
+    };
+    let contract_address = deploy(prepared).unwrap();
+    (IEVMFactsRegistryDispatcher { contract_address }, contract_address)
 }
 
 #[test]
-fn test_receive_hash_wrong_address() {
-    let (safe_dispatcher, _) = helper_create_safe_headers_store();
+fn test_prove_account() {
+    let (dispatcher, contract_address) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
 
-    assert(safe_dispatcher.receive_hash(0xffff, 0xabcd).is_err(), 'Should fail');
+    // Proof for block 17000000
+    let block_header_rlp = *helper_get_headers_rlp().at(0);
+    let (mmr_proofs, peaks) = helper_get_mmr_proofs_peaks();
+    let mmr_proof = *mmr_proofs.at(0);
+    let fields = array![AccountField::Nonce, AccountField::Balance, AccountField::StorageHash, AccountField::CodeHash].span();
+    dispatcher.prove_account(
+        fields,
+        block_header_rlp,
+        0,
+        array![].span(),
+        2,
+        peaks,
+        mmr_proof,
+        1,
+        TEST_MMR_SIZE
+    );
 }
 
-#[test]
-fn test_receive_hash() {
-    let (dispatcher, contract_address) = helper_create_headers_store();
+// Returns (proofs, peaks)
+fn helper_get_mmr_proofs_peaks() -> (Span<Proof>, Peaks) {
+    let headers = helper_get_headers_rlp();
 
-    let block_number = 0x420;
-    let real_block_hash = 0xabcd;
-    let block_hash = dispatcher.get_received_block(block_number);
-    assert(block_hash == 0, 'Initial block hash should be 0');
+    let l1 = 0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
+    let l2 = hash_words64(*headers.at(0));
+    let l3 = hash_words64(*headers.at(1));
+    let l4 = hash_words64(*headers.at(2));
+    let l5 = hash_words64(*headers.at(3));
 
-    helper_receive_hash(real_block_hash, block_number, dispatcher, contract_address);
+    let peaks = array![
+        PoseidonHasher::hash_double(
+            PoseidonHasher::hash_double(l1, l2),
+            PoseidonHasher::hash_double(l3, l4),
+        ),
+        l5
+    ].span();
 
-    let block_hash = dispatcher.get_received_block(block_number);
-    assert(block_hash == real_block_hash, 'Block hash not set');
-}
-
-#[test]
-fn test_initial_tree() {
-    let (dispatcher, contract_address) = helper_create_headers_store();
-
-    let mmr_id = 0;
-
-    let mmr = dispatcher.get_mmr(mmr_id);
-    let expected_root = MMR_INITIAL_ROOT;
-    assert(mmr.last_pos == 1, 'Wrong initial last_pos');
-    assert(mmr.root == expected_root, 'initial Wrong root');
-
-    let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
-    assert(historical_root == expected_root, 'Wrong initial historical root');
-}
-
-#[test]
-fn test_process_received_block() {
-    let (dispatcher, contract_address) = helper_create_headers_store();
-
-    let block_number = 17000000;
-    let real_block_hash = 0x96cfa0fb5e50b0a3f6cc76f3299cfbf48f17e8b41798d1394474e67ec8a97e9f;
-    helper_receive_hash(real_block_hash, block_number, dispatcher, contract_address);
-
-    let header_rlp = *helper_get_headers_rlp().at(0);
-
-    let mmr_id = 0;
-    dispatcher
-        .process_received_block(
-            block_number, header_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id
-        );
-
-    let mmr = dispatcher.get_mmr(mmr_id);
-    let expected_root = 0x6b4b4026b5460ad9cb3a6fccf4516d8329eaa6751da76842f189b67c74f193;
-    assert(mmr.last_pos == 3, 'Wrong last_pos');
-    assert(mmr.root == expected_root, 'Wrong root');
-
-    let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
-    assert(historical_root == expected_root, 'Wrong historical root');
-}
-
-#[test]
-fn test_process_batch_form_message() {
-    let (dispatcher, contract_address) = helper_create_headers_store();
-
-    let initial_block_number = 17000000;
-    let real_block_hash = 0x96cfa0fb5e50b0a3f6cc76f3299cfbf48f17e8b41798d1394474e67ec8a97e9f;
-    helper_receive_hash(real_block_hash, initial_block_number, dispatcher, contract_address);
-
-    let headers_rlp = helper_get_headers_rlp();
-
-    let mmr_id = 0;
-    dispatcher
-        .process_batch(
-            headers_rlp,
-            array![MMR_INITIAL_ELEMENT].span(),
-            mmr_id,
-            Option::Some(initial_block_number),
-            Option::None(()),
-            Option::None(())
-        );
-
-    let mmr = dispatcher.get_mmr(mmr_id);
-    let expected_root =
-        1572837993933765604342513043085607997530137513337847038176530205164559011564;
-    assert(mmr.last_pos == 8, 'Wrong last_pos');
-    assert(mmr.root == expected_root, 'Wrong root');
-
-    let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
-    assert(historical_root == expected_root, 'Wrong historical root');
+    (
+        array![
+            array![l1, PoseidonHasher::hash_double(l3, l4)].span(),
+            array![l4, PoseidonHasher::hash_double(l1, l2)].span(),
+            array![l3, PoseidonHasher::hash_double(l1, l2)].span(),
+            array![].span()
+        ].span(),
+        peaks
+    )
 }
 
 fn helper_get_headers_rlp() -> Span<Words64> {
@@ -415,146 +362,6 @@ fn helper_get_headers_rlp() -> Span<Words64> {
             2995362435
         ]
             .span(),
-    //array![
-    //18219417174019932921,
-    //16083864134760656902,
-    //10295426118574649922,
-    //8360381505023288964,
-    //5605888209921422376,
-    //13080049234815213288,
-    //4977272650390615655,
-    //4801382644103943195,
-    //10103988799149457661,
-    //3546896030373547137,
-    //12811728746864885809,
-    //2674941986357680018,
-    //11483445208482818996,
-    //17199270617691170075,
-    //4877820188118080676,
-    //9486021517467869285,
-    //9955969497858801935,
-    //7044770139951371625,
-    //3681550067156513767,
-    //920927437527569614,
-    //17345961124947359199,
-    //16776142633484725612,
-    //16184957196300600453,
-    //485896919658199,
-    //3538506517102569288,
-    //4769204004714711480,
-    //5931061528349387208,
-    //4180056229859865880,
-    //9639852251318257516,
-    //6270017864455576140,
-    //5366345283411066142,
-    //3482969231853834770,
-    //6848211817462293029,
-    //18353282125984597993,
-    //13880047340619859988,
-    //11104041080886923656,
-    //16955503076797066006,
-    //13973038692264982075,
-    //6108764803908769501,
-    //11873845832132548526,
-    //8381738505829707343,
-    //2972822542871643441,
-    //13379703747836711703,
-    //12981693489590182669,
-    //11057897053441178290,
-    //16189476766595711848,
-    //3073172693940475468,
-    //6173773309367305245,
-    //3538088185396420231,
-    //10977363621874008597,
-    //4585808254850954830,
-    //14152802300651852800,
-    //13315182579216102418,
-    //8365169692555580944,
-    //15132713022927738563,
-    //16410361240221501796,
-    //109278699798496384,
-    //17835038482695766985,
-    //9500512617080317060,
-    //7526752372513901313,
-    //3328215298606065544,
-    //11563121160349320498,
-    //2766238696243360747,
-    //14962176934875455032,
-    //6259965550571698305,
-    //11864091271460930794,
-    //136,
-    //68740728284808448
-    //].span(),
-    //array![
-    //4980889823718474489,
-    //3966853924813684024,
-    //12639221170754933430,
-    //14646770530818728383,
-    //5605888211468837151,
-    //13080049234815213288,
-    //4977272650390615655,
-    //4801382644103943195,
-    //17005192278141321469,
-    //3475584354178098859,
-    //17858124224415326122,
-    //16549259734987893260,
-    //5305525775066799391,
-    //5708678197831794626,
-    //3480834116117044666,
-    //15907514683217208241,
-    //16948852932055821348,
-    //10799729905615085207,
-    //14912140562703110876,
-    //1949305063464768131,
-    //6797550865115124396,
-    //17109300633997942481,
-    //5094694012074499950,
-    //484947486570285,
-    //1950199655348379904,
-    //6917557070558922768,
-    //4638716446997024904,
-    //13839598300919496960,
-    //1173187707225069570,
-    //10099086143075856644,
-    //335946492853911938,
-    //2306309760489759810,
-    //1011075983415181376,
-    //2607584459851039338,
-    //13860184649085362560,
-    //5349837052445184,
-    //225182192741924898,
-    //1480839889590162196,
-    //578167540170561088,
-    //2595297744495845378,
-    //9534683397146902571,
-    //3985685717535476755,
-    //1748069286377760816,
-    //10672001697452208129,
-    //461636555603249802,
-    //10386746059491165704,
-    //261737098019612246,
-    //2342446062398256136,
-    //5911328589143617761,
-    //4617390286317829320,
-    //1729602179133875776,
-    //2315026267805921338,
-    //72198332736747008,
-    //9802086795546111889,
-    //6935659424929480928,
-    //149942085783463186,
-    //109277600286868608,
-    //9551186354231100361,
-    //8391447007065878628,
-    //7526752130573169520,
-    //8243105109760107053,
-    //11207258939277140782,
-    //953069320280687651,
-    //8358076700073148736,
-    //11460787224762429817,
-    //149597160199684,
-    //325666548054228992,
-    //4176937042
-    //].span()
     ]
         .span()
 }
