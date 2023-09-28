@@ -128,6 +128,8 @@ mod EVMFactsRegistry {
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
+    use cairo_lib::utils::bitwise::reverse_endianness_u256;
+    use cairo_lib::hashing::keccak::keccak_cairo_words64;
 
     //
     // Storage
@@ -368,8 +370,20 @@ mod EVMFactsRegistry {
             };
 
             let mpt = MPTTrait::new(state_root);
+            let account_u256: u256 = account.into();
+
+            // Split the address into 3 64 bit words
+            let word0_pow2 = 0x1000000000000000000000000;
+            let word1_pow2 = 0x100000000;
+            let words = array![
+                reverse_endianness_u64((account_u256 / word0_pow2).try_into().unwrap(), Option::None),
+                reverse_endianness_u64(((account_u256 / word1_pow2) & 0xffffffffffffffff).try_into().unwrap(), Option::None),
+                reverse_endianness_u64((account_u256 & 0xffffffff).try_into().unwrap(), Option::Some(4)),
+            ].span();
+            let key = reverse_endianness_u256(keccak_cairo_words64(words));
+
             let rlp_account = mpt
-                .verify(account.into(), 32, mpt_proof)
+                .verify(key, 64, mpt_proof)
                 .expect('MPT verification failed');
 
             let (decoded_account, _) = rlp_decode(rlp_account).expect('Invalid account rlp');
