@@ -325,8 +325,10 @@ mod HeadersStore {
                     .expect('MMR proof verification failed');
                 assert(valid_proof, 'Invalid proof');
             } else {
-                start_block = reference_block.unwrap();
-                let initial_blockhash = self.received_blocks.read(start_block);
+                let reference_block = reference_block.unwrap();
+                start_block = reference_block - 1;
+
+                let initial_blockhash = self.received_blocks.read(reference_block);
                 assert(initial_blockhash != Zeroable::zero(), 'Block not received');
 
                 let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), true);
