@@ -406,10 +406,10 @@ mod EVMFactsRegistry {
                                 *l.at(3)
                             },
                             AccountField::Balance(_) => {
-                                *l.at(0)
+                                *l.at(1)
                             },
                             AccountField::Nonce(_) => {
-                                *l.at(1)
+                                *l.at(0)
                             },
                         };
 

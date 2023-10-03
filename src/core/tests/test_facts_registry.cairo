@@ -6,7 +6,6 @@ use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::hashing::poseidon::{hash_words64, PoseidonHasher};
 use cairo_lib::data_structures::mmr::{proof::Proof, peaks::Peaks};
-use debug::PrintTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const TEST_MMR_ROOT: felt252 = 0x37a31db9c80c54ec632f04f7984155dc43591a3f8c891adfbf34e75331e0eec;
@@ -53,6 +52,11 @@ fn test_prove_account() {
         1,
         TEST_MMR_SIZE
     );
+
+    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::Nonce).unwrap() == 0x1, 'Nonce not matching');
+    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::Balance).unwrap() == 0x0, 'Balance not matching');
+    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::StorageHash).unwrap() == 0x5D0524D4B9C82CB7880508E76F15CAF821FD4EAAA072487C297B7C02ECEDFD9E, 'Storage hash not matching');
+    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::CodeHash).unwrap() == 0x0515B4E68313D3D1E01637B15C33256BB534BC526B3E89A4D6B90C897C4B0DD8, 'Code hash not matching');
 }
 
 // Returns (proofs, peaks)
