@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: GPL-3.0
-
 use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
@@ -13,35 +11,41 @@ enum AccountField {
     Nonce: ()
 }
 
-//
-// Interface
-//
-
 #[starknet::interface]
 trait IEVMFactsRegistry<TContractState> {
-    // Returns the address of the contract that stores the headers.
+    // @notice Returns the address of the headers store
+    // @return The address of the headers store
     fn get_headers_store(self: @TContractState) -> ContractAddress;
 
-    // Returns the value of the given field of the given account at the given block.
+    // @notice Returns a proven account field values
+    // @param account: The account to query
+    // @param block: The block number
+    // @param field: The field to query
+    // @return The value of the field, if the field is not proven, returns None
     fn get_account_field(
         self: @TContractState, account: felt252, block: u256, field: AccountField
     ) -> Option<u256>;
 
-    // Returns the value of the given slot of the given account at the given block.
+    // @notice Returns a proven storage slot value
+    // @param account: The account to query
+    // @param block: The block number
+    // @param slot: The slot to query
+    // @return The value of the slot, if the slot is not proven, returns None
     fn get_slot_value(
         self: @TContractState, account: felt252, block: u256, slot: u256
     ) -> Option<u256>;
 
-    // Returns the value of the given field(s) of the given account at the given block.
-    // @param fields: The fields to return.
-    // @param block_header_rlp: The RLP of the block header.
-    // @param account: The account to query.
-    // @param mpt_proof: The MPT proof of the account.
-    // @param mmr_index: The index of the block in the MMR.
-    // @param mmr_peaks: The peaks of the MMR.
-    // @param mmr_proof: The proof of the MMR.
-    // @param mmr_id: The id of the MMR.
-    // @param last_pos The size of the MMR at the time of the proof generation (i.e., leaves count).
+    // @notice Gets an account from a block
+    // @param fields: The fields to query
+    // @param block_header_rlp: The RLP of the block header
+    // @param account: The account to query
+    // @param mpt_proof: The MPT proof of the account
+    // @param mmr_index: The index of the block in the MMR
+    // @param mmr_peaks: The peaks of the MMR
+    // @param mmr_proof: The proof of inclusion of the blockhash in the MMR
+    // @param mmr_id: The id of the MMR
+    // @param last_pos The size of the MMR for which the proof was generated
+    // @return The values of the fields
     fn get_account(
         self: @TContractState,
         fields: Span<AccountField>,
@@ -55,12 +59,12 @@ trait IEVMFactsRegistry<TContractState> {
         last_pos: usize,
     ) -> Span<u256>;
 
-    // Returns the value of the given slot of the given account at the given block.
-    // @param block: The block number.
-    // @param account: The account to query.
-    // @param slot: The slot to query.
-    // @param slot_len: The length of the slot.
-    // @param mpt_proof: The MPT proof of the account.
+    // @notice Gets a storage slot from a proven account
+    // @dev The account storage hash must be proven
+    // @param block: The block number
+    // @param account: The account to query
+    // @param slot: The slot to query
+    // @param slot_len: The length of the slot in nibbles (2 * bytes)
     fn get_storage(
         self: @TContractState,
         block: u256,
@@ -70,16 +74,17 @@ trait IEVMFactsRegistry<TContractState> {
         mpt_proof: Span<Words64>
     ) -> u256;
 
-    // Proves the value of the given field(s) of the given account at the given block.
-    // @param fields: The fields to prove.
-    // @param block_header_rlp: The RLP of the block header.
-    // @param account: The account to prove.
-    // @param mpt_proof: The MPT proof of the account.
-    // @param mmr_index: The index of the block in the MMR.
-    // @param mmr_peaks: The peaks of the MMR.
-    // @param mmr_proof: The proof of the MMR.
-    // @param mmr_id: The id of the MMR.
-    // @param last_pos The size of the MMR at the time of the proof generation (i.e., leaves count).
+    // @notice Proves an account at a given block
+    // @dev The proven fields are written to storage and can later be used
+    // @param fields: The fields to prove
+    // @param block_header_rlp: The RLP of the block header
+    // @param account: The account to prove
+    // @param mpt_proof: The MPT proof of the account
+    // @param mmr_index: The index of the block in the MMR
+    // @param mmr_peaks: The peaks of the MMR
+    // @param mmr_proof: The proof of inclusion of the blockhash in the MMR
+    // @param mmr_id: The id of the MMR
+    // @param last_pos The size of the MMR for which the proof was generated
     fn prove_account(
         ref self: TContractState,
         fields: Span<AccountField>,
@@ -93,12 +98,14 @@ trait IEVMFactsRegistry<TContractState> {
         last_pos: usize,
     );
 
-    // Proves the value of the given slot of the given account at the given block.
-    // @param block: The block number.
-    // @param account: The account to prove.
-    // @param slot: The slot to prove.
-    // @param slot_len: The length of the slot.
-    // @param mpt_proof: The MPT proof of the account.
+    // @notice Proves a storage slot at a given block
+    // @dev The proven slot is written to storage and can later be used
+    // @dev The account storage hash must be proven
+    // @param block: The block number
+    // @param account: The account to prove
+    // @param slot: The slot to prove
+    // @param slot_len: The length of the slot in nibbles (2 * bytes)
+    // @param mpt_proof: The MPT proof of the slot (storage proof)
     fn prove_storage(
         ref self: TContractState,
         block: u256,
@@ -109,10 +116,7 @@ trait IEVMFactsRegistry<TContractState> {
     );
 }
 
-//
-// Contract
-//
-
+// @notice Contract that stores all the proven facts, entrypoint for applications using with Herodotus
 #[starknet::contract]
 mod EVMFactsRegistry {
     use starknet::ContractAddress;
@@ -131,10 +135,6 @@ mod EVMFactsRegistry {
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::hashing::keccak::keccak_cairo_words64;
 
-    //
-    // Storage
-    //
-
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
@@ -147,10 +147,6 @@ mod EVMFactsRegistry {
         // (account_address, block_number, slot) => value
         slot_values: LegacyMap::<(felt252, u256, u256), Option<u256>>
     }
-
-    //
-    // Events
-    //
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -179,16 +175,14 @@ mod EVMFactsRegistry {
         self.headers_store.write(headers_store);
     }
 
-    //
-    // External
-    //
-
     #[external(v0)]
     impl EVMFactsRegistry of super::IEVMFactsRegistry<ContractState> {
+        // @inheritdoc IEVMFactsRegistry
         fn get_headers_store(self: @ContractState) -> ContractAddress {
             self.headers_store.read()
         }
 
+        // @inheritdoc IEVMFactsRegistry
         fn get_account_field(
             self: @ContractState, account: felt252, block: u256, field: AccountField
         ) -> Option<u256> {
@@ -200,12 +194,14 @@ mod EVMFactsRegistry {
             }
         }
 
+        // @inheritdoc IEVMFactsRegistry
         fn get_slot_value(
             self: @ContractState, account: felt252, block: u256, slot: u256
         ) -> Option<u256> {
             self.slot_values.read((account, block, slot))
         }
 
+        // @inheritdoc IEVMFactsRegistry
         fn get_account(
             self: @ContractState,
             fields: Span<AccountField>,
@@ -234,6 +230,7 @@ mod EVMFactsRegistry {
             fields
         }
 
+        // @inheritdoc IEVMFactsRegistry
         fn get_storage(
             self: @ContractState,
             block: u256,
@@ -253,6 +250,7 @@ mod EVMFactsRegistry {
             value.try_into().unwrap()
         }
 
+        // @inheritdoc IEVMFactsRegistry
         fn prove_account(
             ref self: ContractState,
             fields: Span<AccountField>,
@@ -308,6 +306,7 @@ mod EVMFactsRegistry {
             self.emit(Event::AccountProven(AccountProven { account, block, fields }));
         }
 
+        // @inheritdoc IEVMFactsRegistry
         fn prove_storage(
             ref self: ContractState,
             block: u256,
@@ -327,7 +326,7 @@ mod EVMFactsRegistry {
 
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
-        // returns (block_number, account_fields)
+        // @inheritdoc IEVMFactsRegistry
         fn get_account(
             self: @ContractState,
             fields: Span<AccountField>,
