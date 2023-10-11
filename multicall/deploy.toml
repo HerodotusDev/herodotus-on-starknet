@@ -1,9 +1,9 @@
 [[call]]
 call_type = "deploy"
-class_hash = "0x710fb6c249e9c76996f01e170218e31aec7498a8ae618842a0f67b66987c436"
+class_hash = "0x6dcbb98c24b44e22fcebe9f55edb8fe38ddccf3cc44867fb927be6eae630b8f"
 inputs = [
-    "0x1",
-    "0x2",
+    "0x0",
+    "0x859Bd0971f1e6c03Ba9226eF04ECB1eDCA21C643",
     "0x0",
     "0x007327d012f432a9f940228ae6b01032ea4742d8bba8599d7a34e1d5c120e983",
 ]
@@ -12,14 +12,20 @@ unique = false
 
 [[call]]
 call_type = "deploy"
-class_hash = "0x4965a6ea3851cde0fd10952802af3300fac851122051c3743644aabe901ee13"
-inputs = ["0x1"]
+class_hash = "0x1682106ed9633995d885fd96fae550da23e76153bfd1387c72232526390cffa"
+inputs = ["commitments_inbox"]
 id = "headers_store"
 unique = false
 
 [[call]]
 call_type = "deploy"
-class_hash = "0xfa77018c244261ab65551a07c0f6e3fab9592027e4cd456b9d074f2b94a9ae"
-inputs = ["0x1"]
+class_hash = "0x061c19d73ed890a498382b3ffd40060a0978d5e4f981c1d9b310d44168a80518"
+inputs = ["headers_store"]
 id = "evm_facts_registry"
 unique = false
+
+[[call]]
+call_type = "invoke"
+contract_address = "commitments_inbox"
+function = "set_headers_store"
+inputs = ["headers_store"]
