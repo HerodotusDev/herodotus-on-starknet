@@ -5,6 +5,7 @@ import {Ownable} from "openzeppelin/access/Ownable.sol";
 
 import {FormatWords64} from "./lib/FormatWords64.sol";
 import {IStarknetCore} from "./interfaces/IStarknetCore.sol";
+import {IOptimismL2OutputOracle} from "./interfaces/IOptimismL2OutputOracle.sol";
 
 import {IAggregatorsFactory} from "./interfaces/IAggregatorsFactory.sol";
 import {IAggregator} from "./interfaces/IAggregator.sol";
@@ -15,8 +16,9 @@ contract L1MessagesSender is Ownable {
     using Uint256Splitter for uint256;
 
     IStarknetCore public immutable starknetCore;
+    IOptimismL2OutputOracle public immutable optimismOutputOracle;
 
-    uint256 public l2RecipientAddr;
+    uint256 public ethereumCommitmentsInboxAddr;
 
     IAggregatorsFactory public aggregatorsFactory;
 
@@ -29,15 +31,20 @@ contract L1MessagesSender is Ownable {
         0x36c76e67f1d589956059cbd9e734d42182d1f8a57d5876390bb0fcfe1090bb4;
 
     /// @param starknetCore_ a StarknetCore address to send and consume messages on/from L2
-    /// @param l2RecipientAddr_ a L2 recipient address that is the recipient contract on L2.
+    /// @param optimismOutputOracle_ address of the optimism rollup output contract
+    /// @param ethereumCommitmentsInboxAddr_ a L2 recipient address that is the recipient contract on L2.
+    /// @param optimismCommitmentsInboxAddr_ a L2 recipient address that is the recipient contract on L2.
     /// @param aggregatorsFactoryAddr_ Herodotus aggregators factory address (where MMR trees are referenced)
     constructor(
         IStarknetCore starknetCore_,
-        uint256 l2RecipientAddr_,
+        IOptimismL2OutputOracle optimismOutputOracle_,
+        uint256 ethereumCommitmentsInboxAddr_,
+        uint256 optimismCommitmentsInboxAddr_,
         address aggregatorsFactoryAddr_
     ) {
         starknetCore = starknetCore_;
-        l2RecipientAddr = l2RecipientAddr_;
+        optimismOutputOracle = optimismOutputOracle_;
+        ethereumCommitmentsInboxAddr = ethereumCommitmentsInboxAddr_;
         aggregatorsFactory = IAggregatorsFactory(aggregatorsFactoryAddr_);
     }
 
@@ -48,6 +55,22 @@ contract L1MessagesSender is Ownable {
         require(parentHash != bytes32(0), "ERR_INVALID_BLOCK_NUMBER");
 
         _sendBlockHashToL2(parentHash, blockNumber_);
+    }
+
+    // See  https://github.com/ethereum-optimism/optimism/blob/0086b6dd4eaa579227607216a83ca0d6a652b264/packages/contracts-bedrock/src/libraries/Hashing.sol#L114
+    function sendOptimismBlockhashToL2(uint256 outputIndex_, IOptimismL2OutputOracle.OutputRootProof calldata outputRootPreimage_) external payable {
+        IOptimismL2OutputOracle.OutputProposal memory outputProposal = optimismOutputOracle.getL2Output(outputIndex_);
+        bytes32 actualOutputRoot = keccak256(
+            abi.encode(
+                outputRootPreimage_.version,
+                outputRootPreimage_.stateRoot,
+                outputRootPreimage_.messagePasserStorageRoot,
+                outputRootPreimage_.latestBlockhash
+            )
+        );
+
+        require(actualOutputRoot == outputProposal.outputRoot, "ERR_OUTPUT_ROOT_PROOF_INVALID");
+        _sendBlockHashToL2(outputRootPreimage_.latestBlockhash, outputProposal.l2BlockNumber);
     }
 
     /// @notice Send the L1 latest parent hash to L2
@@ -89,7 +112,7 @@ contract L1MessagesSender is Ownable {
         message[3] = blockNumberHigh;
 
         starknetCore.sendMessageToL2{value: msg.value}(
-            l2RecipientAddr,
+            ethereumCommitmentsInboxAddr,
             RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR,
             message
         );
@@ -108,18 +131,18 @@ contract L1MessagesSender is Ownable {
 
         // Pass along msg.value
         starknetCore.sendMessageToL2{value: msg.value}(
-            l2RecipientAddr,
+            ethereumCommitmentsInboxAddr,
             RECEIVE_MMR_L1_HANDLER_SELECTOR,
             message
         );
     }
 
     /// @notice Set the L2 recipient address
-    /// @param newL2RecipientAddr_ The new L2 recipient address
-    function setL2RecipientAddr(
-        uint256 newL2RecipientAddr_
+    /// @param newethereumCommitmentsInboxAddr_ The new L2 recipient address
+    function setethereumCommitmentsInboxAddr(
+        uint256 newethereumCommitmentsInboxAddr_
     ) external onlyOwner {
-        l2RecipientAddr = newL2RecipientAddr_;
+        ethereumCommitmentsInboxAddr = newethereumCommitmentsInboxAddr_;
     }
 
     /// @notice Set the aggregators factory address
