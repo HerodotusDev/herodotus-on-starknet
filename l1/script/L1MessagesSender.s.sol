@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 
 import {L1MessagesSender} from "../src/L1MessagesSender.sol";
 import {IStarknetCore} from "../src/interfaces/IStarknetCore.sol";
+import {IOptimismL2OutputOracle} from "../src/interfaces/IOptimismL2OutputOracle.sol";
 
 contract L1MessagesSenderDeployer is Script {
     function run() external {
@@ -14,7 +15,11 @@ contract L1MessagesSenderDeployer is Script {
 
         L1MessagesSender l1MessagesSender = new L1MessagesSender(
             IStarknetCore(vm.envAddress("STARKNET_CORE_ADDRESS")),
-            vm.envUint("L2_RECIPIENT_ADDRESS"),
+            IOptimismL2OutputOracle(
+                vm.envAddress("OPTIMISM_L2_OUTPUT_ORACLE_ADDRESS")
+            ),
+            vm.envUint("L2_RECIPIENT_ADDRESS_FROM_ETHEREUM"),
+            vm.envUint("L2_RECIPIENT_ADDRESS_FROM_OPTIMISM"),
             vm.envAddress("AGGREGATORS_FACTORY_ADDRESS")
         );
 

@@ -139,13 +139,21 @@ contract L1MessagesSender is Ownable {
             message
         );
     }
-
-    /// @notice Set the L2 recipient address
-    /// @param newethereumCommitmentsInboxAddr_ The new L2 recipient address
+    
+    /// @notice Set the L2 recipient address from ethereum
+    /// @param newethereumCommitmentsInboxAddr_ The new L2 recipient address from ethereum
     function setethereumCommitmentsInboxAddr(
         uint256 newethereumCommitmentsInboxAddr_
     ) external onlyOwner {
         ethereumCommitmentsInboxAddr = newethereumCommitmentsInboxAddr_;
+    }
+
+    /// @notice Set the L2 recipient address from optimism
+    /// @param newoptimismCommitmentsInboxAddr_ The new L2 recipient address from optimism
+    function setoptimismCommitmentsInboxAddr(
+        uint256 newoptimismCommitmentsInboxAddr_
+    ) external onlyOwner {
+        optimismCommitmentsInboxAddr = newoptimismCommitmentsInboxAddr_;
     }
 
     /// @notice Set the aggregators factory address
