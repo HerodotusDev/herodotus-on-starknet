@@ -1,6 +1,6 @@
 [[call]]
 call_type = "deploy"
-class_hash = "0x710fb6c249e9c76996f01e170218e31aec7498a8ae618842a0f67b66987c436"
+class_hash = "0x06835a4591dc71821bfc769372d2da76e428d5eef7dccc048e036e8ca80aa740"
 inputs = [
     "0x1",
     "0x2",
@@ -12,26 +12,40 @@ unique = false
 
 [[call]]
 call_type = "deploy"
-class_hash = "0x12fbbaaf4dfa97f4e0e9c19e254defd4632cdc08aef946175ac790382903cc2"
+class_hash = "0x06835a4591dc71821bfc769372d2da76e428d5eef7dccc048e036e8ca80aa740"
 inputs = [
     "0x1",
     "0x2",
     "0x0",
     "0x007327d012f432a9f940228ae6b01032ea4742d8bba8599d7a34e1d5c120e983",
 ]
-id = "optimism_commitments_inbox"
+id = "op_commitments_inbox"
 unique = false
 
 [[call]]
 call_type = "deploy"
-class_hash = "0x4965a6ea3851cde0fd10952802af3300fac851122051c3743644aabe901ee13"
+class_hash = "0x2d505685c0bf351d41c0a8d8645c48fa7c1b1ee956da23414e725ff2de35807"
 inputs = ["0x1"]
 id = "headers_store"
 unique = false
 
 [[call]]
 call_type = "deploy"
-class_hash = "0xfa77018c244261ab65551a07c0f6e3fab9592027e4cd456b9d074f2b94a9ae"
+class_hash = "0x2d505685c0bf351d41c0a8d8645c48fa7c1b1ee956da23414e725ff2de35807"
+inputs = ["0x1"]
+id = "op_headers_store"
+unique = false
+
+[[call]]
+call_type = "deploy"
+class_hash = "0x2d22cd79ecdd6eed68fddbe0640454e3b8613be645b961d059c7ea54e5b0fcc"
 inputs = ["0x1"]
 id = "evm_facts_registry"
+unique = false
+
+[[call]]
+call_type = "deploy"
+class_hash = "0x2d22cd79ecdd6eed68fddbe0640454e3b8613be645b961d059c7ea54e5b0fcc"
+inputs = ["0x1"]
+id = "op_facts_registry"
 unique = false
