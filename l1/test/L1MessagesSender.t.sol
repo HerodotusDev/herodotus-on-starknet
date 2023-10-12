@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import {L1MessagesSender} from "../src/L1MessagesSender.sol";
 import {IStarknetCore} from "../src/interfaces/IStarknetCore.sol";
+import {IOptimismL2OutputOracle} from "../src/interfaces/IOptimismL2OutputOracle.sol";
 
 contract L1MessagesSenderTest is Test {
     L1MessagesSender public sender;
@@ -14,6 +15,8 @@ contract L1MessagesSenderTest is Test {
 
         sender = new L1MessagesSender(
             IStarknetCore(0xde29d060D45901Fb19ED6C6e959EB22d8626708e),
+            IOptimismL2OutputOracle(0xdfe97868233d1aa22e815a266982f2cf17685a27),
+            // TODO: change with deployed optimism commitmnets inbox
             0x07bf6b32382276bFF5341f810A6811233A9591228642F60160129629448a21b6,
             0xB8Cb7707b5160eaE8931e0cf02B563a5CeA75F09
         );
