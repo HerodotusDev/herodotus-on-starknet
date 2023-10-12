@@ -12,6 +12,18 @@ unique = false
 
 [[call]]
 call_type = "deploy"
+class_hash = "0x12fbbaaf4dfa97f4e0e9c19e254defd4632cdc08aef946175ac790382903cc2"
+inputs = [
+    "0x1",
+    "0x2",
+    "0x0",
+    "0x007327d012f432a9f940228ae6b01032ea4742d8bba8599d7a34e1d5c120e983",
+]
+id = "optimism_commitments_inbox"
+unique = false
+
+[[call]]
+call_type = "deploy"
 class_hash = "0x4965a6ea3851cde0fd10952802af3300fac851122051c3743644aabe901ee13"
 inputs = ["0x1"]
 id = "headers_store"
