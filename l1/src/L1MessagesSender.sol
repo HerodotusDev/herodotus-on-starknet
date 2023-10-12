@@ -19,6 +19,7 @@ contract L1MessagesSender is Ownable {
     IOptimismL2OutputOracle public immutable optimismOutputOracle;
 
     uint256 public ethereumCommitmentsInboxAddr;
+    uint256 public optimismCommitmentsInboxAddr;
 
     IAggregatorsFactory public aggregatorsFactory;
 
@@ -45,6 +46,7 @@ contract L1MessagesSender is Ownable {
         starknetCore = starknetCore_;
         optimismOutputOracle = optimismOutputOracle_;
         ethereumCommitmentsInboxAddr = ethereumCommitmentsInboxAddr_;
+        optimismCommitmentsInboxAddr = optimismCommitmentsInboxAddr_;
         aggregatorsFactory = IAggregatorsFactory(aggregatorsFactoryAddr_);
     }
 
@@ -54,7 +56,7 @@ contract L1MessagesSender is Ownable {
         bytes32 parentHash = blockhash(blockNumber_ - 1);
         require(parentHash != bytes32(0), "ERR_INVALID_BLOCK_NUMBER");
 
-        _sendBlockHashToL2(parentHash, blockNumber_);
+        _sendBlockHashToL2(parentHash, blockNumber_, ethereumCommitmentsInboxAddr);
     }
 
     // See  https://github.com/ethereum-optimism/optimism/blob/0086b6dd4eaa579227607216a83ca0d6a652b264/packages/contracts-bedrock/src/libraries/Hashing.sol#L114
@@ -70,13 +72,13 @@ contract L1MessagesSender is Ownable {
         );
 
         require(actualOutputRoot == outputProposal.outputRoot, "ERR_OUTPUT_ROOT_PROOF_INVALID");
-        _sendBlockHashToL2(outputRootPreimage_.latestBlockhash, outputProposal.l2BlockNumber);
+        _sendBlockHashToL2(outputRootPreimage_.latestBlockhash, outputProposal.l2BlockNumber, optimismCommitmentsInboxAddr);
     }
 
     /// @notice Send the L1 latest parent hash to L2
     function sendLatestParentHashToL2() external payable {
         bytes32 parentHash = blockhash(block.number - 1);
-        _sendBlockHashToL2(parentHash, block.number);
+        _sendBlockHashToL2(parentHash, block.number, ethereumCommitmentsInboxAddr);
     }
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
@@ -99,7 +101,8 @@ contract L1MessagesSender is Ownable {
 
     function _sendBlockHashToL2(
         bytes32 parentHash_,
-        uint256 blockNumber_
+        uint256 blockNumber_,
+        uint256 commitmentsInboxAddr_
     ) internal {
         uint256[] memory message = new uint256[](4);
         (uint256 parentHashLow, uint256 parentHashHigh) = uint256(parentHash_)
@@ -112,7 +115,7 @@ contract L1MessagesSender is Ownable {
         message[3] = blockNumberHigh;
 
         starknetCore.sendMessageToL2{value: msg.value}(
-            ethereumCommitmentsInboxAddr,
+            commitmentsInboxAddr_,
             RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR,
             message
         );
