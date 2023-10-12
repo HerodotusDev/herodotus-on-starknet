@@ -18,7 +18,7 @@ contract L1MessagesSender is Ownable {
     IStarknetCore public immutable starknetCore;
     IOptimismL2OutputOracle public immutable optimismOutputOracle;
 
-    uint256 public ethereumCommitmentsInboxAddr;
+    uint256 public optimismCommitmentsInboxAddr;
 
     IAggregatorsFactory public aggregatorsFactory;
 
@@ -32,19 +32,17 @@ contract L1MessagesSender is Ownable {
 
     /// @param starknetCore_ a StarknetCore address to send and consume messages on/from L2
     /// @param optimismOutputOracle_ address of the optimism rollup output contract
-    /// @param ethereumCommitmentsInboxAddr_ a L2 recipient address that is the recipient contract on L2.
     /// @param optimismCommitmentsInboxAddr_ a L2 recipient address that is the recipient contract on L2.
     /// @param aggregatorsFactoryAddr_ Herodotus aggregators factory address (where MMR trees are referenced)
     constructor(
         IStarknetCore starknetCore_,
         IOptimismL2OutputOracle optimismOutputOracle_,
-        uint256 ethereumCommitmentsInboxAddr_,
         uint256 optimismCommitmentsInboxAddr_,
         address aggregatorsFactoryAddr_
     ) {
         starknetCore = starknetCore_;
         optimismOutputOracle = optimismOutputOracle_;
-        ethereumCommitmentsInboxAddr = ethereumCommitmentsInboxAddr_;
+        optimismCommitmentsInboxAddr = optimismCommitmentsInboxAddr_;
         aggregatorsFactory = IAggregatorsFactory(aggregatorsFactoryAddr_);
     }
 
@@ -58,8 +56,14 @@ contract L1MessagesSender is Ownable {
     }
 
     // See  https://github.com/ethereum-optimism/optimism/blob/0086b6dd4eaa579227607216a83ca0d6a652b264/packages/contracts-bedrock/src/libraries/Hashing.sol#L114
-    function sendOptimismBlockhashToL2(uint256 outputIndex_, IOptimismL2OutputOracle.OutputRootProof calldata outputRootPreimage_) external payable {
-        IOptimismL2OutputOracle.OutputProposal memory outputProposal = optimismOutputOracle.getL2Output(outputIndex_);
+    function sendOptimismBlockhashToL2(
+        uint256 outputIndex_,
+        IOptimismL2OutputOracle.OutputRootProof calldata outputRootPreimage_
+    ) external payable {
+        IOptimismL2OutputOracle.OutputProposal
+            memory outputProposal = optimismOutputOracle.getL2Output(
+                outputIndex_
+            );
         bytes32 actualOutputRoot = keccak256(
             abi.encode(
                 outputRootPreimage_.version,
@@ -69,8 +73,14 @@ contract L1MessagesSender is Ownable {
             )
         );
 
-        require(actualOutputRoot == outputProposal.outputRoot, "ERR_OUTPUT_ROOT_PROOF_INVALID");
-        _sendBlockHashToL2(outputRootPreimage_.latestBlockhash, outputProposal.l2BlockNumber);
+        require(
+            actualOutputRoot == outputProposal.outputRoot,
+            "ERR_OUTPUT_ROOT_PROOF_INVALID"
+        );
+        _sendBlockHashToL2(
+            outputRootPreimage_.latestBlockhash,
+            outputProposal.l2BlockNumber
+        );
     }
 
     /// @notice Send the L1 latest parent hash to L2
@@ -112,7 +122,7 @@ contract L1MessagesSender is Ownable {
         message[3] = blockNumberHigh;
 
         starknetCore.sendMessageToL2{value: msg.value}(
-            ethereumCommitmentsInboxAddr,
+            optimismCommitmentsInboxAddr,
             RECEIVE_COMMITMENT_L1_HANDLER_SELECTOR,
             message
         );
@@ -131,18 +141,18 @@ contract L1MessagesSender is Ownable {
 
         // Pass along msg.value
         starknetCore.sendMessageToL2{value: msg.value}(
-            ethereumCommitmentsInboxAddr,
+            optimismCommitmentsInboxAddr,
             RECEIVE_MMR_L1_HANDLER_SELECTOR,
             message
         );
     }
 
     /// @notice Set the L2 recipient address
-    /// @param newethereumCommitmentsInboxAddr_ The new L2 recipient address
-    function setethereumCommitmentsInboxAddr(
-        uint256 newethereumCommitmentsInboxAddr_
+    /// @param newoptimismCommitmentsInboxAddr_ The new L2 recipient address
+    function setoptimismCommitmentsInboxAddr(
+        uint256 newoptimismCommitmentsInboxAddr_
     ) external onlyOwner {
-        ethereumCommitmentsInboxAddr = newethereumCommitmentsInboxAddr_;
+        optimismCommitmentsInboxAddr = newoptimismCommitmentsInboxAddr_;
     }
 
     /// @notice Set the aggregators factory address
