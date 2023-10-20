@@ -294,6 +294,8 @@ mod HeadersStore {
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
 
+            let (mut decoded_rlp, mut rlp_byte_len) = rlp_decode(*headers_rlp.at(0)).expect('Invalid header rlp');
+
             if mmr_proof.is_some() {
                 let valid_proof = mmr
                     .verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap())
@@ -306,7 +308,7 @@ mod HeadersStore {
                 let initial_blockhash = self.received_blocks.read(reference_block);
                 assert(initial_blockhash != Zeroable::zero(), 'Block not received');
 
-                let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), true);
+                let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), rlp_byte_len, true);
                 assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
                 let (_, p) = mmr.append(poseidon_hash, mmr_peaks).expect('Failed to append to MMR');
@@ -319,30 +321,38 @@ mod HeadersStore {
                     break ();
                 }
 
-                let child_rlp = *headers_rlp.at(i - 1);
-                let (decoded_rlp, _) = rlp_decode(child_rlp).expect('Invalid header rlp');
                 let parent_hash: u256 = match decoded_rlp {
                     RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                     RLPItem::List(l) => {
                         if i == 1 && reference_block.is_none() {
-                            let start_block_words = *l.at(8);
+                            let (start_block_words, start_block_byte_len) = *l.at(8);
                             assert(start_block_words.len() == 1, 'Invalid start_block');
 
                             let start_block_le = *start_block_words.at(0);
                             start_block =
                                 reverse_endianness_u64(
-                                    start_block_le, Option::Some(bytes_used_u64(start_block_le))
+                                    start_block_le, Option::Some(start_block_byte_len)
                                 )
                                 .into();
                         }
-                        let words = *l.at(0);
-                        assert(words.len() == 4, 'Invalid parent_hash rlp');
+                        let (words, words_byte_len) = *l.at(0);
+                        assert(words.len() == 4 && words_byte_len == 32, 'Invalid parent_hash rlp');
                         words.try_into().unwrap()
                     },
                 };
 
                 let current_rlp = *headers_rlp.at(i);
-                let current_hash = InternalFunctions::keccak_hash_rlp(current_rlp, false);
+                match rlp_decode(current_rlp) {
+                    Result::Ok((d, d_l)) => {
+                        decoded_rlp = d;
+                        rlp_byte_len = d_l;
+                    },
+                    Result::Err(_) => {
+                        panic_with_felt252('Invalid header rlp');
+                    }
+                };
+
+                let current_hash = InternalFunctions::keccak_hash_rlp(current_rlp, rlp_byte_len, false);
                 assert(current_hash == parent_hash, 'Invalid header rlp');
 
                 let poseidon_hash = hash_words64(current_rlp);
@@ -493,10 +503,11 @@ mod HeadersStore {
     impl InternalFunctions of InternalFunctionsTrait {
         // @notice Hashes RLP-encoded header
         // @param rlp RLP-encoded header
+        // @param last_word_bytes Number of bytes in the last word
         // @param big_endian Whether to reverse endianness of the hash
         // @return Hash of the header
-        fn keccak_hash_rlp(rlp: Words64, big_endian: bool) -> u256 {
-            let mut hash = keccak_cairo_words64(rlp);
+        fn keccak_hash_rlp(rlp: Words64, last_word_bytes: usize, big_endian: bool) -> u256 {
+            let mut hash = keccak_cairo_words64(rlp, last_word_bytes);
             if big_endian {
                 reverse_endianness_u256(hash)
             } else {
