@@ -308,7 +308,11 @@ mod HeadersStore {
                 let initial_blockhash = self.received_blocks.read(reference_block);
                 assert(initial_blockhash != Zeroable::zero(), 'Block not received');
 
-                let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), rlp_byte_len, true);
+                let mut last_word_byte_len = rlp_byte_len % 8;
+                if last_word_byte_len == 0 {
+                    last_word_byte_len = 8;
+                }
+                let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), last_word_byte_len, true);
                 assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
                 let (_, p) = mmr.append(poseidon_hash, mmr_peaks).expect('Failed to append to MMR');
@@ -352,7 +356,11 @@ mod HeadersStore {
                     }
                 };
 
-                let current_hash = InternalFunctions::keccak_hash_rlp(current_rlp, rlp_byte_len, false);
+                let mut last_word_byte_len = rlp_byte_len % 8;
+                if last_word_byte_len == 0 {
+                    last_word_byte_len = 8;
+                }
+                let current_hash = InternalFunctions::keccak_hash_rlp(current_rlp, last_word_byte_len, false);
                 assert(current_hash == parent_hash, 'Invalid header rlp');
 
                 let poseidon_hash = hash_words64(current_rlp);
