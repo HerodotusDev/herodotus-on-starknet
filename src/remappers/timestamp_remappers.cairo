@@ -111,21 +111,18 @@ mod TimestampRemappers {
             mapper_peaks: Peaks,
             origin_elements: Span<OriginElement>
         ) {
+            let len = origin_elements.len(); // Count of elements in the batch to append
+            assert(len != 0, 'Empty batch');
+
             // Fetch from storage
             let headers_store_addr = self.headers_store.read();
             let mut mapper = self.mappers.read(mapper_id);
             let mut mapper_mmr = self.mappers_mmrs.read(mapper_id);
 
             // Determine the expected block number of the first element in the batch
-            let mut expected_block = 0;
-            if (mapper.elements_count == 0) {
-                expected_block = mapper.start_block;
-            } else {
-                expected_block = mapper.start_block + mapper.elements_count + 1;
-            }
+            let mut expected_block = mapper.start_block + mapper.elements_count;
 
             let mut idx = 0;
-            let len = origin_elements.len(); // Count of elements in the batch to append
             let mut last_timestamp = 0; // Local to this batch
             let mut peaks = mapper_peaks;
             loop {
@@ -274,9 +271,6 @@ mod TimestampRemappers {
             let mapper = self.mappers.read(tree.mapper_id);
             let last_timestamp = mapper.last_timestamp;
 
-            // Retrieve the header store address
-            let headers_store_addr = self.headers_store.read();
-
             // Fetch MMR from history
             let root = self.mappers_mmrs_history.read((tree.mapper_id, tree.last_pos));
             let mmr = MMRTrait::new(root, tree.last_pos);
@@ -313,7 +307,7 @@ mod TimestampRemappers {
                     .verify_proof(
                         index: *proof_element.index,
                         hash: mid_val.try_into().unwrap(),
-                        peaks: *proof_element.peaks,
+                        peaks: tree.peaks,
                         proof: *proof_element.proof,
                     )
                     .unwrap();
@@ -331,7 +325,7 @@ mod TimestampRemappers {
                 return Option::None(());
             }
             let closest_idx: u256 = left - 1;
-            let tree_closest_low_val = tree.left_neighbor.unwrap();
+            let tree_closest_low_val = tree.left_neighbor;
 
             assert(
                 tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
@@ -343,7 +337,7 @@ mod TimestampRemappers {
                 .verify_proof(
                     tree_closest_low_val.index,
                     tree_closest_low_val.value.try_into().unwrap(),
-                    tree_closest_low_val.peaks,
+                    tree.peaks,
                     tree_closest_low_val.proof,
                 )
                 .unwrap();

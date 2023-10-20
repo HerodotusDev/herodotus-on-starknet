@@ -42,6 +42,7 @@ trait ICommitmentsInbox<TContractState> {
 // @dev The contract ownership will be renounced in mainnet, it is only used for testing purposes
 #[starknet::contract]
 mod CommitmentsInbox {
+    use core::zeroable::Zeroable;
     use starknet::{ContractAddress, get_caller_address, EthAddress};
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
@@ -139,6 +140,11 @@ mod CommitmentsInbox {
             let caller = get_caller_address();
             assert(self.owner.read() == caller, 'Only owner');
             self.owner.write(new_owner);
+
+            if new_owner.is_zero() {
+                self.emit(Event::OwnershipRenounced(OwnershipRenounced { previous_owner: caller }));
+                return;
+            }
 
             self
                 .emit(

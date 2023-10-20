@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.13;
+pragma solidity 0.8.21;
 
 import {Ownable} from "openzeppelin/access/Ownable.sol";
 
-import {FormatWords64} from "./lib/FormatWords64.sol";
 import {IStarknetCore} from "./interfaces/IStarknetCore.sol";
 
 import {IAggregatorsFactory} from "./interfaces/IAggregatorsFactory.sol";

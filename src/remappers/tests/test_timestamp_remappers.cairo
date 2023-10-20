@@ -389,30 +389,15 @@ fn test_remappers() {
         0x5f97afc157cf05dd5414a752bce3ca2ecf9ce685ce3022f41659816c08af771, 1688044344
     ];
     let proofs = array![
-        ProofElement {
-            index: 2,
-            value: 1688044320,
-            peaks: peaks.span(),
-            proof: array![1688044308].span(),
-            last_pos: 4,
-        },
-        ProofElement {
-            index: 4, value: 1688044344, peaks: peaks.span(), proof: array![].span(), last_pos: 4,
-        }
+        ProofElement { index: 2, value: 1688044320, proof: array![1688044308].span(), },
+        ProofElement { index: 4, value: 1688044344, proof: array![].span() }
     ];
     let tree = BinarySearchTree {
         mapper_id: mapper_id,
         last_pos: 4,
+        peaks: peaks.span(),
         proofs: proofs.span(),
-        left_neighbor: Option::Some(
-            ProofElement {
-                index: 4,
-                value: 1688044344,
-                peaks: peaks.span(),
-                proof: array![].span(),
-                last_pos: 4,
-            }
-        ),
+        left_neighbor: ProofElement { index: 4, value: 1688044344, proof: array![].span() },
     };
     let timestamp = 1688044344; // Element to find (exact match)
     let corresponding_block_number = remapper_dispatcher

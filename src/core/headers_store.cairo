@@ -298,6 +298,8 @@ mod HeadersStore {
                 .expect('Invalid header rlp');
 
             if mmr_proof.is_some() {
+                assert(reference_block.is_none(), 'Cannot use proof AND ref block');
+
                 let valid_proof = mmr
                     .verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap())
                     .expect('MMR proof verification failed');
