@@ -107,7 +107,7 @@ trait IHeadersStore<TContractState> {
         ref self: TContractState, root: felt252, last_pos: usize, aggregator_id: usize
     );
 
-    
+
     // @notice Creates a new MMR with a single element, present in another MMR (branch)
     // @param index The index of the element in the MMR
     // @param initial_poseidon_blockhash The Poseidon hash of the block
@@ -294,7 +294,8 @@ mod HeadersStore {
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
 
-            let (mut decoded_rlp, mut rlp_byte_len) = rlp_decode(*headers_rlp.at(0)).expect('Invalid header rlp');
+            let (mut decoded_rlp, mut rlp_byte_len) = rlp_decode(*headers_rlp.at(0))
+                .expect('Invalid header rlp');
 
             if mmr_proof.is_some() {
                 let valid_proof = mmr
@@ -312,7 +313,9 @@ mod HeadersStore {
                 if last_word_byte_len == 0 {
                     last_word_byte_len = 8;
                 }
-                let rlp_hash = InternalFunctions::keccak_hash_rlp(*headers_rlp.at(0), last_word_byte_len, true);
+                let rlp_hash = InternalFunctions::keccak_hash_rlp(
+                    *headers_rlp.at(0), last_word_byte_len, true
+                );
                 assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
 
                 let (_, p) = mmr.append(poseidon_hash, mmr_peaks).expect('Failed to append to MMR');
@@ -360,7 +363,9 @@ mod HeadersStore {
                 if last_word_byte_len == 0 {
                     last_word_byte_len = 8;
                 }
-                let current_hash = InternalFunctions::keccak_hash_rlp(current_rlp, last_word_byte_len, false);
+                let current_hash = InternalFunctions::keccak_hash_rlp(
+                    current_rlp, last_word_byte_len, false
+                );
                 assert(current_hash == parent_hash, 'Invalid header rlp');
 
                 let poseidon_hash = hash_words64(current_rlp);

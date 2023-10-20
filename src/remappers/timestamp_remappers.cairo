@@ -242,22 +242,20 @@ mod TimestampRemappers {
     impl InternalFunctions of InternalFunctionsTrait {
         fn extract_header_block_number_and_timestamp(header: Words64) -> (u256, u256) {
             let (decoded_rlp, _) = rlp_decode(header).unwrap();
-            let (block_number, timestamp) = match decoded_rlp {
+            let ((block_number, block_number_byte_len), (timestamp, timestamp_byte_len)) =
+                match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
                     (
-                        (*(*l.at(BLOCK_NUMBER_OFFSET_IN_HEADER_RLP)).at(0)),
-                        (*(*l.at(TIMESTAMP_OFFSET_IN_HEADER_RLP)).at(0))
+                        *l.at(BLOCK_NUMBER_OFFSET_IN_HEADER_RLP),
+                        *l.at(TIMESTAMP_OFFSET_IN_HEADER_RLP)
                     )
                 },
             };
             (
-                reverse_endianness_u64(
-                    block_number, Option::Some(bytes_used_u64(block_number).into())
-                )
+                reverse_endianness_u64(*block_number.at(0), Option::Some(block_number_byte_len))
                     .into(),
-                reverse_endianness_u64(timestamp, Option::Some(bytes_used_u64(timestamp).into()))
-                    .into()
+                reverse_endianness_u64(*timestamp.at(0), Option::Some(timestamp_byte_len)).into()
             )
         }
 
