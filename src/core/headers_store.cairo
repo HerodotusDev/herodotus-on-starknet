@@ -144,7 +144,7 @@ mod HeadersStore {
     use cairo_lib::hashing::keccak::keccak_cairo_words64;
     use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
-    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
+    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode_list_lazy};
 
     const MMR_INITIAL_ROOT: felt252 =
         0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
@@ -294,17 +294,35 @@ mod HeadersStore {
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
 
-            let (mut decoded_rlp, mut rlp_byte_len) = rlp_decode(*headers_rlp.at(0))
-                .expect('Invalid header rlp');
+            let (mut decoded_rlp, mut rlp_byte_len) = (RLPItem::Bytes((array![].span(), 0)), 0);
 
             if mmr_proof.is_some() {
                 assert(reference_block.is_none(), 'Cannot use proof AND ref block');
+                match rlp_decode_list_lazy(*headers_rlp.at(0), array![0, 8].span()) {
+                    Result::Ok((d, d_l)) => {
+                        decoded_rlp = d;
+                        rlp_byte_len = d_l;
+                    },
+                    Result::Err(_) => {
+                        panic_with_felt252('Invalid header rlp');
+                    }
+                };
 
                 let valid_proof = mmr
                     .verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap())
                     .expect('MMR proof verification failed');
                 assert(valid_proof, 'Invalid proof');
             } else {
+                match rlp_decode_list_lazy(*headers_rlp.at(0), array![0].span()) {
+                    Result::Ok((d, d_l)) => {
+                        decoded_rlp = d;
+                        rlp_byte_len = d_l;
+                    },
+                    Result::Err(_) => {
+                        panic_with_felt252('Invalid header rlp');
+                    }
+                };
+
                 let reference_block = reference_block.unwrap();
                 start_block = reference_block - 1;
 
@@ -334,7 +352,7 @@ mod HeadersStore {
                     RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                     RLPItem::List(l) => {
                         if i == 1 && reference_block.is_none() {
-                            let (start_block_words, start_block_byte_len) = *l.at(8);
+                            let (start_block_words, start_block_byte_len) = *l.at(1);
                             assert(start_block_words.len() == 1, 'Invalid start_block');
 
                             let start_block_le = *start_block_words.at(0);
@@ -351,7 +369,7 @@ mod HeadersStore {
                 };
 
                 let current_rlp = *headers_rlp.at(i);
-                match rlp_decode(current_rlp) {
+                match rlp_decode_list_lazy(current_rlp, array![0].span()) {
                     Result::Ok((d, d_l)) => {
                         decoded_rlp = d;
                         rlp_byte_len = d_l;

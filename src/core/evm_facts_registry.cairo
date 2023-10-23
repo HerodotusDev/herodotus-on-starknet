@@ -117,7 +117,7 @@ mod EVMFactsRegistry {
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::data_structures::eth_mpt::MPTTrait;
-    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
+    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode, rlp_decode_list_lazy};
     use cairo_lib::utils::types::words64::{
         Words64, Words64TryIntoU256LE, reverse_endianness_u64, bytes_used_u64
     };
@@ -359,16 +359,16 @@ mod EVMFactsRegistry {
                 );
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
-            let (decoded_rlp, _) = rlp_decode(block_header_rlp).expect('Invalid header rlp');
+            let (decoded_rlp, _) = rlp_decode_list_lazy(block_header_rlp, array![3, 8].span()).expect('Invalid header rlp');
             let mut state_root: u256 = 0;
             let mut block_number: u256 = 0;
             match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
-                    let (state_root_words, _) = *l.at(3);
+                    let (state_root_words, _) = *l.at(0);
                     state_root = state_root_words.try_into().unwrap();
 
-                    let (block_number_words, block_number_byte_len) = *l.at(8);
+                    let (block_number_words, block_number_byte_len) = *l.at(1);
                     assert(block_number_words.len() == 1, 'Invalid block number');
 
                     let block_number_le = *block_number_words.at(0);
