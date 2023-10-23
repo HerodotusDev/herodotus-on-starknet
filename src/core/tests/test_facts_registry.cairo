@@ -116,7 +116,7 @@ fn test_prove_storage() {
     assert(
         dispatcher
             .get_slot_value(TEST_ACCOUNT, TEST_BLOCK, 0)
-            .unwrap() == 0x3AAE49F09953728C1EA74268C0272B326A9EB1FC94,
+            .unwrap() == 0x3AAE49F09953728C1EA74268C0272B326A9EB1FC,
         'Slot value not matching'
     );
 }

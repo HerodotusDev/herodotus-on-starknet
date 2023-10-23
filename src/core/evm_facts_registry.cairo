@@ -255,9 +255,14 @@ mod EVMFactsRegistry {
             let key = reverse_endianness_u256(keccak_cairo_words64(words, 8));
 
             let mpt = MPTTrait::new(storage_hash);
-            let value = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
+            let rlp_value = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
 
-            value.try_into().unwrap()
+            let (item, _) = rlp_decode(rlp_value).expect('Invalid RLP value');
+
+            match item {
+                RLPItem::Bytes((value, _)) => value.try_into().expect('Invalid value'),
+                RLPItem::List(_) => panic_with_felt252('Invalid header rlp')
+            }
         }
 
         // @inheritdoc IEVMFactsRegistry
