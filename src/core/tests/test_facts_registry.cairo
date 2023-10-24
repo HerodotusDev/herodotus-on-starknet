@@ -108,10 +108,7 @@ fn test_prove_storage() {
         );
 
     let storage_proof = helper_get_storage_proof();
-    dispatcher
-        .prove_storage(
-            TEST_BLOCK, TEST_ACCOUNT, 0, storage_proof
-        );
+    dispatcher.prove_storage(TEST_BLOCK, TEST_ACCOUNT, 0, storage_proof);
 
     assert(
         dispatcher

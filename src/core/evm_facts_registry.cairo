@@ -359,7 +359,8 @@ mod EVMFactsRegistry {
                 );
             assert(mmr_inclusion, 'MMR inclusion not proven');
 
-            let (decoded_rlp, _) = rlp_decode_list_lazy(block_header_rlp, array![3, 8].span()).expect('Invalid header rlp');
+            let (decoded_rlp, _) = rlp_decode_list_lazy(block_header_rlp, array![3, 8].span())
+                .expect('Invalid header rlp');
             let mut state_root: u256 = 0;
             let mut block_number: u256 = 0;
             match decoded_rlp {
