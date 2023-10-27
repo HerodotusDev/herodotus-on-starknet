@@ -300,6 +300,7 @@ mod HeadersStore {
             let (mut decoded_rlp, mut rlp_byte_len) = (RLPItem::Bytes((array![].span(), 0)), 0);
 
             if mmr_proof.is_some() {
+                assert(reference_block.is_none(), 'Cannot use proof AND ref block');
                 match rlp_decode_list_lazy(*headers_rlp.at(0), array![0, 8].span()) {
                     Result::Ok((d, d_l)) => {
                         decoded_rlp = d;
