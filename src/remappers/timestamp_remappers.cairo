@@ -117,12 +117,7 @@ mod TimestampRemappers {
             let mut mapper_mmr = self.mappers_mmrs.read(mapper_id);
 
             // Determine the expected block number of the first element in the batch
-            let mut expected_block = 0;
-            if (mapper.elements_count == 0) {
-                expected_block = mapper.start_block;
-            } else {
-                expected_block = mapper.start_block + mapper.elements_count + 1;
-            }
+            let mut expected_block = mapper.start_block + mapper.elements_count;
 
             let mut idx = 0;
             let len = origin_elements.len(); // Count of elements in the batch to append
