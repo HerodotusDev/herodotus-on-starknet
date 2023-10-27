@@ -271,9 +271,6 @@ mod TimestampRemappers {
             let mapper = self.mappers.read(tree.mapper_id);
             let last_timestamp = mapper.last_timestamp;
 
-            // Retrieve the header store address
-            let headers_store_addr = self.headers_store.read();
-
             // Fetch MMR from history
             let root = self.mappers_mmrs_history.read((tree.mapper_id, tree.last_pos));
             let mmr = MMRTrait::new(root, tree.last_pos);
