@@ -140,6 +140,11 @@ mod CommitmentsInbox {
             assert(self.owner.read() == caller, 'Only owner');
             self.owner.write(new_owner);
 
+            if new_owner.is_zero() {
+                self.emit(Event::OwnershipRenounced(OwnershipRenounced { previous_owner: caller }));
+                return;
+            }
+
             self
                 .emit(
                     Event::OwnershipTransferred(
