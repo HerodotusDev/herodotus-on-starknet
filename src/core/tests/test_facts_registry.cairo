@@ -1,7 +1,11 @@
 use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
 
-use herodotus_eth_starknet::core::headers_store::{IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher};
-use herodotus_eth_starknet::core::evm_facts_registry::{IEVMFactsRegistryDispatcherTrait, IEVMFactsRegistryDispatcher, AccountField};
+use herodotus_eth_starknet::core::headers_store::{
+    IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
+};
+use herodotus_eth_starknet::core::evm_facts_registry::{
+    IEVMFactsRegistryDispatcherTrait, IEVMFactsRegistryDispatcher, AccountField
+};
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::hashing::poseidon::{hash_words64, PoseidonHasher};
@@ -12,7 +16,9 @@ const TEST_MMR_ROOT: felt252 = 0x37a31db9c80c54ec632f04f7984155dc43591a3f8c891ad
 const TEST_MMR_SIZE: usize = 8;
 const TEST_ACCOUNT: felt252 = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
-fn helper_create_facts_registry(mmr_root: felt252, mmr_size: usize) -> (IEVMFactsRegistryDispatcher, ContractAddress) {
+fn helper_create_facts_registry(
+    mmr_root: felt252, mmr_size: usize
+) -> (IEVMFactsRegistryDispatcher, ContractAddress) {
     let class_hash = declare('HeadersStore');
     let prepared = PreparedContract {
         class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
@@ -40,23 +46,38 @@ fn test_prove_account() {
     let mpt_proof = helper_get_account_proof();
     let (mmr_proofs, peaks) = helper_get_mmr_proofs_peaks();
     let mmr_proof = *mmr_proofs.at(0);
-    let fields = array![AccountField::Nonce, AccountField::Balance, AccountField::StorageHash, AccountField::CodeHash].span();
-    dispatcher.prove_account(
-        fields,
-        block_header_rlp,
-        TEST_ACCOUNT,
-        mpt_proof,
-        2,
-        peaks,
-        mmr_proof,
-        1,
-        TEST_MMR_SIZE
-    );
+    let fields = array![
+        AccountField::Nonce,
+        AccountField::Balance,
+        AccountField::StorageHash,
+        AccountField::CodeHash
+    ]
+        .span();
+    dispatcher
+        .prove_account(
+            fields, block_header_rlp, TEST_ACCOUNT, mpt_proof, 2, peaks, mmr_proof, 1, TEST_MMR_SIZE
+        );
 
-    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::Nonce).unwrap() == 0x1, 'Nonce not matching');
-    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::Balance).unwrap() == 0x0, 'Balance not matching');
-    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::StorageHash).unwrap() == 0x5D0524D4B9C82CB7880508E76F15CAF821FD4EAAA072487C297B7C02ECEDFD9E, 'Storage hash not matching');
-    assert(dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::CodeHash).unwrap() == 0x0515B4E68313D3D1E01637B15C33256BB534BC526B3E89A4D6B90C897C4B0DD8, 'Code hash not matching');
+    assert(
+        dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::Nonce).unwrap() == 0x1,
+        'Nonce not matching'
+    );
+    assert(
+        dispatcher.get_account_field(TEST_ACCOUNT, 17000000, AccountField::Balance).unwrap() == 0x0,
+        'Balance not matching'
+    );
+    assert(
+        dispatcher
+            .get_account_field(TEST_ACCOUNT, 17000000, AccountField::StorageHash)
+            .unwrap() == 0x5D0524D4B9C82CB7880508E76F15CAF821FD4EAAA072487C297B7C02ECEDFD9E,
+        'Storage hash not matching'
+    );
+    assert(
+        dispatcher
+            .get_account_field(TEST_ACCOUNT, 17000000, AccountField::CodeHash)
+            .unwrap() == 0x0515B4E68313D3D1E01637B15C33256BB534BC526B3E89A4D6B90C897C4B0DD8,
+        'Code hash not matching'
+    );
 }
 
 // Returns (proofs, peaks)
@@ -71,11 +92,11 @@ fn helper_get_mmr_proofs_peaks() -> (Span<Proof>, Peaks) {
 
     let peaks = array![
         PoseidonHasher::hash_double(
-            PoseidonHasher::hash_double(l1, l2),
-            PoseidonHasher::hash_double(l3, l4),
+            PoseidonHasher::hash_double(l1, l2), PoseidonHasher::hash_double(l3, l4),
         ),
         l5
-    ].span();
+    ]
+        .span();
 
     (
         array![
@@ -83,7 +104,8 @@ fn helper_get_mmr_proofs_peaks() -> (Span<Proof>, Peaks) {
             array![l4, PoseidonHasher::hash_double(l1, l2)].span(),
             array![l3, PoseidonHasher::hash_double(l1, l2)].span(),
             array![].span()
-        ].span(),
+        ]
+            .span(),
         peaks
     )
 }
@@ -444,7 +466,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0xbad3b28cd635ec34,
             0x39dbfe42ae1129ff,
             0x80ab4c27,
-        ].span(),
+        ]
+            .span(),
         array![
             0x672a10b8a01102f9,
             0x3685dd8af23ba32f,
@@ -513,7 +536,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0x14535a3b1db9d9ca,
             0x449e00d90447a6d6,
             0x80bc3d10
-        ].span(),
+        ]
+            .span(),
         array![
             0xcdd959a4a01102f9,
             0x39de8f440483d303,
@@ -582,7 +606,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0x814b859f8dba0efa,
             0xe428e44f583390b7,
             0x80407b3d,
-        ].span(),
+        ]
+            .span(),
         array![
             0x3bacb43ca01102f9,
             0x7266f872190c0c44,
@@ -651,7 +676,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0x653fc86d34e451bd,
             0xc91980bdc3674ab4,
             0x80a9361d,
-        ].span(),
+        ]
+            .span(),
         array![
             0xcae3ea71a01102f9,
             0x5583715c09468bac,
@@ -720,7 +746,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0xb051cdbcae6ca6c7,
             0x05f3cff8902b5781,
             0x8067b204,
-        ].span(),
+        ]
+            .span(),
         array![
             0x602ec2b6a01102f9,
             0xea01727655796318,
@@ -789,7 +816,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0x29884587d2b5cc11,
             0x4304b0b61cfd2211,
             0x8010204b,
-        ].span(),
+        ]
+            .span(),
         array![
             0x717e337da05101f9,
             0xa84e5cf4e54ccd7e,
@@ -834,7 +862,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0xa4a33ca254442fcc,
             0x18a93edecf1924d7,
             0x80806c03
-        ].span(),
+        ]
+            .span(),
         array![
             0x48358a56a08071f8,
             0x916d6cc6be68c4f0,
@@ -851,7 +880,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0xae8ddad39ded79dd,
             0x8080313f35efcdca,
             0x808080,
-        ].span(),
+        ]
+            .span(),
         array![
             0x3f7fcd92209d66f8,
             0xccf602df97741378,
@@ -866,6 +896,8 @@ fn helper_get_account_proof() -> Span<Words64> {
             0xb534bc526b3e89a4,
             0xe01637b15c33256b,
             0x0515b4e68313d3d1,
-        ].span(),
-    ].span()
+        ]
+            .span(),
+    ]
+        .span()
 }

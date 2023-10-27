@@ -158,7 +158,9 @@ mod CommitmentsInbox {
         }
 
         // @inheritdoc ICommitmentsInbox
-        fn receive_commitment_owner(ref self: ContractState, parent_hash: u256, block_number: u256) {
+        fn receive_commitment_owner(
+            ref self: ContractState, parent_hash: u256, block_number: u256
+        ) {
             let caller = get_caller_address();
             assert(self.owner.read() == caller, 'Only owner');
 

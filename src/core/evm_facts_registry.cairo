@@ -354,16 +354,15 @@ mod EVMFactsRegistry {
             match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
-                    state_root = (*l.at(3)).try_into().unwrap();
+                    let (state_root_words, _) = *l.at(3);
+                    state_root = state_root_words.try_into().unwrap();
 
-                    let block_number_words = *l.at(8);
+                    let (block_number_words, block_number_byte_len) = *l.at(8);
                     assert(block_number_words.len() == 1, 'Invalid block number');
 
                     let block_number_le = *block_number_words.at(0);
                     block_number =
-                        reverse_endianness_u64(
-                            block_number_le, Option::Some(bytes_used_u64(block_number_le))
-                        )
+                        reverse_endianness_u64(block_number_le, Option::Some(block_number_byte_len))
                         .into();
                 },
             };
@@ -375,15 +374,21 @@ mod EVMFactsRegistry {
             let word0_pow2 = 0x1000000000000000000000000;
             let word1_pow2 = 0x100000000;
             let words = array![
-                reverse_endianness_u64((account_u256 / word0_pow2).try_into().unwrap(), Option::None),
-                reverse_endianness_u64(((account_u256 / word1_pow2) & 0xffffffffffffffff).try_into().unwrap(), Option::None),
-                reverse_endianness_u64((account_u256 & 0xffffffff).try_into().unwrap(), Option::Some(4)),
-            ].span();
-            let key = reverse_endianness_u256(keccak_cairo_words64(words));
+                reverse_endianness_u64(
+                    (account_u256 / word0_pow2).try_into().unwrap(), Option::None
+                ),
+                reverse_endianness_u64(
+                    ((account_u256 / word1_pow2) & 0xffffffffffffffff).try_into().unwrap(),
+                    Option::None
+                ),
+                reverse_endianness_u64(
+                    (account_u256 & 0xffffffff).try_into().unwrap(), Option::Some(4)
+                ),
+            ]
+                .span();
+            let key = reverse_endianness_u256(keccak_cairo_words64(words, 4));
 
-            let rlp_account = mpt
-                .verify(key, 64, mpt_proof)
-                .expect('MPT verification failed');
+            let rlp_account = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
 
             let (decoded_account, _) = rlp_decode(rlp_account).expect('Invalid account rlp');
             let mut account_fields = ArrayTrait::new();
@@ -397,7 +402,7 @@ mod EVMFactsRegistry {
                         }
 
                         let field = fields.at(i);
-                        let field_value = match field {
+                        let (field_value, _) = match field {
                             AccountField::StorageHash(_) => {
                                 *l.at(2)
                             },
