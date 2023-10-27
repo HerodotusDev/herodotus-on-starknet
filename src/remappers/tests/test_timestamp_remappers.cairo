@@ -390,22 +390,16 @@ fn test_remappers() {
     ];
     let proofs = array![
         ProofElement {
-            index: 2,
-            value: 1688044320,
-            peaks: peaks.span(),
-            proof: array![1688044308].span(),
-            last_pos: 4,
+            index: 2, value: 1688044320, peaks: peaks.span(), proof: array![1688044308].span(),
         },
-        ProofElement {
-            index: 4, value: 1688044344, peaks: peaks.span(), proof: array![].span(), last_pos: 4,
-        }
+        ProofElement { index: 4, value: 1688044344, peaks: peaks.span(), proof: array![].span(), }
     ];
     let tree = BinarySearchTree {
         mapper_id: mapper_id,
         last_pos: 4,
         proofs: proofs.span(),
         left_neighbor: ProofElement {
-            index: 4, value: 1688044344, peaks: peaks.span(), proof: array![].span(), last_pos: 4,
+            index: 4, value: 1688044344, peaks: peaks.span(), proof: array![].span(),
         }
     };
     let timestamp = 1688044344; // Element to find (exact match)

@@ -27,7 +27,6 @@ struct ProofElement {
     value: u256,
     peaks: Peaks,
     proof: Proof,
-    last_pos: usize,
 }
 
 #[derive(Drop, Serde)]
