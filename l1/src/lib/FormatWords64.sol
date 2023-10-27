@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.13;
+pragma solidity 0.8.21;
 
 library FormatWords64 {
     // Convert a bytes32 variable passed as parameter into 4 words of 8 bytes
