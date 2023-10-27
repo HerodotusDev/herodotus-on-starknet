@@ -114,6 +114,7 @@ trait IHeadersStore<TContractState> {
     // @param peaks The peaks of the MMR
     // @param proof The inclusion proof (i.e., siblings path to the root hash)
     // @param mmr_id The id of the MMR
+    // @param last_pos last_pos of the given MMR
     fn create_branch_single_element(
         ref self: TContractState,
         index: usize,
@@ -121,11 +122,13 @@ trait IHeadersStore<TContractState> {
         peaks: Peaks,
         proof: Proof,
         mmr_id: usize,
+        last_pos: usize
     );
 
     // @notice Creates a new MMR that is a clone of an already existing MMR
     // @param mmr_id The id of the MMR to clone
-    fn create_branch_from(ref self: TContractState, mmr_id: usize);
+    // @param last_pos last_pos of the given MMR
+    fn create_branch_from(ref self: TContractState, mmr_id: usize, last_pos: usize);
 }
 
 
@@ -449,10 +452,11 @@ mod HeadersStore {
             peaks: Peaks,
             proof: Proof,
             mmr_id: usize,
+            last_pos: usize
         ) {
             assert(
-                HeadersStore::verify_mmr_inclusion(
-                    @self, index, initial_poseidon_blockhash, peaks, proof, mmr_id
+                HeadersStore::verify_historical_mmr_inclusion(
+                    @self, index, initial_poseidon_blockhash, peaks, proof, mmr_id, last_pos
                 ),
                 'Invalid proof'
             );
@@ -479,14 +483,13 @@ mod HeadersStore {
         }
 
         // @inheritdoc IHeadersStore
-        fn create_branch_from(ref self: ContractState, mmr_id: usize) {
+        fn create_branch_from(ref self: ContractState, mmr_id: usize, last_pos: usize) {
             let latest_mmr_id = self.latest_mmr_id.read() + 1;
-            let mmr = self.mmr.read(mmr_id);
+            let root = self.mmr_history.read((mmr_id, last_pos));
 
-            let root = mmr.root;
-            let last_pos = mmr.last_pos;
+            let mmr = MMRTrait::new(root, last_pos);
 
-            self.mmr.write(latest_mmr_id, mmr.clone());
+            self.mmr.write(latest_mmr_id, mmr);
             self.mmr_history.write((latest_mmr_id, last_pos), root);
             self.latest_mmr_id.write(latest_mmr_id);
 
