@@ -404,15 +404,9 @@ fn test_remappers() {
         mapper_id: mapper_id,
         last_pos: 4,
         proofs: proofs.span(),
-        left_neighbor: Option::Some(
-            ProofElement {
-                index: 4,
-                value: 1688044344,
-                peaks: peaks.span(),
-                proof: array![].span(),
-                last_pos: 4,
-            }
-        ),
+        left_neighbor: ProofElement {
+            index: 4, value: 1688044344, peaks: peaks.span(), proof: array![].span(), last_pos: 4,
+        }
     };
     let timestamp = 1688044344; // Element to find (exact match)
     let corresponding_block_number = remapper_dispatcher

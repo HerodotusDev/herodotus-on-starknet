@@ -35,7 +35,7 @@ struct BinarySearchTree {
     mapper_id: usize,
     last_pos: usize, // last_pos in mapper's MMR
     proofs: Span<ProofElement>, // Midpoint elements inclusion proofs
-    left_neighbor: Option<ProofElement>, // Optional left neighbor inclusion proof
+    left_neighbor: ProofElement, // Optional left neighbor inclusion proof
 }
 
 //

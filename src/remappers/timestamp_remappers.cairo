@@ -328,7 +328,7 @@ mod TimestampRemappers {
                 return Option::None(());
             }
             let closest_idx: u256 = left - 1;
-            let tree_closest_low_val = tree.left_neighbor.unwrap();
+            let tree_closest_low_val = tree.left_neighbor;
 
             assert(
                 tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
