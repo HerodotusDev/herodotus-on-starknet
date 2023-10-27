@@ -25,7 +25,6 @@ struct OriginElement {
 struct ProofElement {
     index: usize,
     value: u256,
-    peaks: Peaks,
     proof: Proof,
 }
 
@@ -33,6 +32,7 @@ struct ProofElement {
 struct BinarySearchTree {
     mapper_id: usize,
     last_pos: usize, // last_pos in mapper's MMR
+    peaks: Peaks,
     proofs: Span<ProofElement>, // Midpoint elements inclusion proofs
     left_neighbor: ProofElement, // Optional left neighbor inclusion proof
 }

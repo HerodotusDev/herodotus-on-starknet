@@ -307,7 +307,7 @@ mod TimestampRemappers {
                     .verify_proof(
                         index: *proof_element.index,
                         hash: mid_val.try_into().unwrap(),
-                        peaks: *proof_element.peaks,
+                        peaks: tree.peaks,
                         proof: *proof_element.proof,
                     )
                     .unwrap();
@@ -337,7 +337,7 @@ mod TimestampRemappers {
                 .verify_proof(
                     tree_closest_low_val.index,
                     tree_closest_low_val.value.try_into().unwrap(),
-                    tree_closest_low_val.peaks,
+                    tree.peaks,
                     tree_closest_low_val.proof,
                 )
                 .unwrap();
