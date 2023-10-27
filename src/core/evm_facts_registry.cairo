@@ -64,14 +64,8 @@ trait IEVMFactsRegistry<TContractState> {
     // @param block: The block number
     // @param account: The account to query
     // @param slot: The slot to query
-    // @param slot_len: The length of the slot in nibbles (2 * bytes)
     fn get_storage(
-        self: @TContractState,
-        block: u256,
-        account: felt252,
-        slot: u256,
-        slot_len: usize,
-        mpt_proof: Span<Words64>
+        self: @TContractState, block: u256, account: felt252, slot: u256, mpt_proof: Span<Words64>
     ) -> u256;
 
     // @notice Proves an account at a given block
@@ -104,14 +98,12 @@ trait IEVMFactsRegistry<TContractState> {
     // @param block: The block number
     // @param account: The account to prove
     // @param slot: The slot to prove
-    // @param slot_len: The length of the slot in nibbles (2 * bytes)
     // @param mpt_proof: The MPT proof of the slot (storage proof)
     fn prove_storage(
         ref self: TContractState,
         block: u256,
         account: felt252,
         slot: u256,
-        slot_len: usize,
         mpt_proof: Span<Words64>
     );
 }
@@ -236,7 +228,6 @@ mod EVMFactsRegistry {
             block: u256,
             account: felt252,
             slot: u256,
-            slot_len: usize,
             mpt_proof: Span<Words64>
         ) -> u256 {
             let storage_hash = self
@@ -244,10 +235,34 @@ mod EVMFactsRegistry {
                 .read((account, block))
                 .expect('Storage hash not proven');
 
-            let mpt = MPTTrait::new(storage_hash);
-            let value = mpt.verify(slot, slot_len, mpt_proof).expect('MPT verification failed');
+            // Split the slot into 4 64 bit words
+            let word0_pow2 = 0x1000000000000000000000000000000000000000000000000;
+            let word1_pow2 = 0x100000000000000000000000000000000;
+            let word2_pow2 = 0x10000000000000000;
+            let words = array![
+                reverse_endianness_u64((slot / word0_pow2).try_into().unwrap(), Option::None),
+                reverse_endianness_u64(
+                    ((slot / word1_pow2) & 0xffffffffffffffff).try_into().unwrap(), Option::None
+                ),
+                reverse_endianness_u64(
+                    ((slot / word2_pow2) & 0xffffffffffffffff).try_into().unwrap(), Option::None
+                ),
+                reverse_endianness_u64(
+                    (slot & 0xffffffffffffffff).try_into().unwrap(), Option::None
+                ),
+            ]
+                .span();
+            let key = reverse_endianness_u256(keccak_cairo_words64(words, 8));
 
-            value.try_into().unwrap()
+            let mpt = MPTTrait::new(storage_hash);
+            let rlp_value = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
+
+            let (item, _) = rlp_decode(rlp_value).expect('Invalid RLP value');
+
+            match item {
+                RLPItem::Bytes((value, _)) => value.try_into().expect('Invalid value'),
+                RLPItem::List(_) => panic_with_felt252('Invalid header rlp')
+            }
         }
 
         // @inheritdoc IEVMFactsRegistry
@@ -312,12 +327,9 @@ mod EVMFactsRegistry {
             block: u256,
             account: felt252,
             slot: u256,
-            slot_len: usize,
             mpt_proof: Span<Words64>
         ) {
-            let value = EVMFactsRegistry::get_storage(
-                @self, block, account, slot, slot_len, mpt_proof
-            );
+            let value = EVMFactsRegistry::get_storage(@self, block, account, slot, mpt_proof);
             self.slot_values.write((account, block, slot), Option::Some(value));
 
             self.emit(Event::StorageProven(StorageProven { account, block, slot, value: value }));
