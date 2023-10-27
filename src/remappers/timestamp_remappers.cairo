@@ -111,6 +111,9 @@ mod TimestampRemappers {
             mapper_peaks: Peaks,
             origin_elements: Span<OriginElement>
         ) {
+            let len = origin_elements.len(); // Count of elements in the batch to append
+            assert(len != 0, 'Empty batch');
+
             // Fetch from storage
             let headers_store_addr = self.headers_store.read();
             let mut mapper = self.mappers.read(mapper_id);
@@ -120,7 +123,6 @@ mod TimestampRemappers {
             let mut expected_block = mapper.start_block + mapper.elements_count;
 
             let mut idx = 0;
-            let len = origin_elements.len(); // Count of elements in the batch to append
             let mut last_timestamp = 0; // Local to this batch
             let mut peaks = mapper_peaks;
             loop {
