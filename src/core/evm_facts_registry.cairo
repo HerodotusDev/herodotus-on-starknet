@@ -119,7 +119,7 @@ mod EVMFactsRegistry {
     use cairo_lib::data_structures::eth_mpt::MPTTrait;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode, rlp_decode_list_lazy};
     use cairo_lib::utils::types::words64::{
-        Words64, Words64TryIntoU256LE, reverse_endianness_u64, bytes_used_u64
+        Words64, Words64Trait, reverse_endianness_u64, bytes_used_u64
     };
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
@@ -230,10 +230,10 @@ mod EVMFactsRegistry {
             slot: u256,
             mpt_proof: Span<Words64>
         ) -> u256 {
-            let storage_hash = self
+            let storage_hash = reverse_endianness_u256(self
                 .storage_hash
                 .read((account, block))
-                .expect('Storage hash not proven');
+                .expect('Storage hash not proven'));
 
             // Split the slot into 4 64 bit words
             let word0_pow2 = 0x1000000000000000000000000000000000000000000000000;
@@ -260,7 +260,7 @@ mod EVMFactsRegistry {
             let (item, _) = rlp_decode(rlp_value).expect('Invalid RLP value');
 
             match item {
-                RLPItem::Bytes((value, _)) => value.try_into().expect('Invalid value'),
+                RLPItem::Bytes((value, value_len)) => value.as_u256_be(value_len).expect('Invalid value'),
                 RLPItem::List(_) => panic_with_felt252('Invalid header rlp')
             }
         }
@@ -368,7 +368,7 @@ mod EVMFactsRegistry {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
                     let (state_root_words, _) = *l.at(0);
-                    state_root = state_root_words.try_into().unwrap();
+                    state_root = reverse_endianness_u256(state_root_words.as_u256_be(32).unwrap());
 
                     let (block_number_words, block_number_byte_len) = *l.at(1);
                     assert(block_number_words.len() == 1, 'Invalid block number');
@@ -415,7 +415,7 @@ mod EVMFactsRegistry {
                         }
 
                         let field = fields.at(i);
-                        let (field_value, _) = match field {
+                        let (field_value, field_value_len) = match field {
                             AccountField::StorageHash(_) => {
                                 *l.at(2)
                             },
@@ -430,7 +430,7 @@ mod EVMFactsRegistry {
                             },
                         };
 
-                        account_fields.append(field_value.try_into().unwrap());
+                        account_fields.append(field_value.as_u256_be(field_value_len).unwrap());
 
                         i += 1;
                     };

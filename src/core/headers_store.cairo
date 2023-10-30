@@ -142,7 +142,7 @@ mod HeadersStore {
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::utils::types::words64::{
-        Words64, Words64TryIntoU256LE, reverse_endianness_u64, bytes_used_u64
+        Words64, Words64Trait, reverse_endianness_u64, bytes_used_u64
     };
     use cairo_lib::hashing::keccak::keccak_cairo_words64;
     use cairo_lib::hashing::poseidon::hash_words64;
@@ -368,7 +368,7 @@ mod HeadersStore {
 
                         let (words, words_byte_len) = *l.at(0);
                         assert(words.len() == 4 && words_byte_len == 32, 'Invalid parent_hash rlp');
-                        words.try_into().unwrap()
+                        reverse_endianness_u256(words.as_u256_be(32).unwrap())
                     },
                 };
 

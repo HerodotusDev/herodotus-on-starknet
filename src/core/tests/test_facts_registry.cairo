@@ -72,13 +72,13 @@ fn test_prove_account() {
     assert(
         dispatcher
             .get_account_field(TEST_ACCOUNT, TEST_BLOCK, AccountField::StorageHash)
-            .unwrap() == 0x5D0524D4B9C82CB7880508E76F15CAF821FD4EAAA072487C297B7C02ECEDFD9E,
+            .unwrap() == 0x9EFDEDEC027C7B297C4872A0AA4EFD21F8CA156FE7080588B72CC8B9D424055D,
         'Storage hash not matching'
     );
     assert(
         dispatcher
             .get_account_field(TEST_ACCOUNT, TEST_BLOCK, AccountField::CodeHash)
-            .unwrap() == 0x0515B4E68313D3D1E01637B15C33256BB534BC526B3E89A4D6B90C897C4B0DD8,
+            .unwrap() == 0xD80D4B7C890CB9D6A4893E6B52BC34B56B25335CB13716E0D1D31383E6B41505,
         'Code hash not matching'
     );
 }
@@ -113,7 +113,7 @@ fn test_prove_storage() {
     assert(
         dispatcher
             .get_slot_value(TEST_ACCOUNT, TEST_BLOCK, 0)
-            .unwrap() == 0x3AAE49F09953728C1EA74268C0272B326A9EB1FC,
+            .unwrap() == 0x000000000000000000000000fcb19e6a322b27c06842a71e8c725399f049ae3a,
         'Slot value not matching'
     );
 }
