@@ -14,7 +14,7 @@ mod TimestampRemappers {
     use cairo_lib::hashing::poseidon::{PoseidonHasher, hash_words64};
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::data_structures::mmr::utils::{leaf_index_to_mmr_index};
-    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
+    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode_list_lazy};
     use cairo_lib::utils::types::words64::{reverse_endianness_u64, bytes_used_u64};
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
@@ -238,14 +238,14 @@ mod TimestampRemappers {
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
         fn extract_header_block_number_and_timestamp(header: Words64) -> (u256, u256) {
-            let (decoded_rlp, _) = rlp_decode(header).unwrap();
+            let (decoded_rlp, _) = rlp_decode_list_lazy(header, array![BLOCK_NUMBER_OFFSET_IN_HEADER_RLP, TIMESTAMP_OFFSET_IN_HEADER_RLP].span()).unwrap();
             let ((block_number, block_number_byte_len), (timestamp, timestamp_byte_len)) =
                 match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
                     (
-                        *l.at(BLOCK_NUMBER_OFFSET_IN_HEADER_RLP),
-                        *l.at(TIMESTAMP_OFFSET_IN_HEADER_RLP)
+                        *l.at(0),
+                        *l.at(1)
                     )
                 },
             };
