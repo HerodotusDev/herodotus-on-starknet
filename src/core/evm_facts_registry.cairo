@@ -230,10 +230,9 @@ mod EVMFactsRegistry {
             slot: u256,
             mpt_proof: Span<Words64>
         ) -> u256 {
-            let storage_hash = reverse_endianness_u256(self
-                .storage_hash
-                .read((account, block))
-                .expect('Storage hash not proven'));
+            let storage_hash = reverse_endianness_u256(
+                self.storage_hash.read((account, block)).expect('Storage hash not proven')
+            );
 
             // Split the slot into 4 64 bit words
             let word0_pow2 = 0x1000000000000000000000000000000000000000000000000;
@@ -260,7 +259,9 @@ mod EVMFactsRegistry {
             let (item, _) = rlp_decode(rlp_value).expect('Invalid RLP value');
 
             match item {
-                RLPItem::Bytes((value, value_len)) => value.as_u256_be(value_len).expect('Invalid value'),
+                RLPItem::Bytes((value, value_len)) => value
+                    .as_u256_be(value_len)
+                    .expect('Invalid value'),
                 RLPItem::List(_) => panic_with_felt252('Invalid header rlp')
             }
         }
@@ -368,7 +369,7 @@ mod EVMFactsRegistry {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
                     let (state_root_words, _) = *l.at(0);
-                    state_root = reverse_endianness_u256(state_root_words.as_u256_be(32).unwrap());
+                    state_root = state_root_words.as_u256_le(32).unwrap();
 
                     let (block_number_words, block_number_byte_len) = *l.at(1);
                     assert(block_number_words.len() == 1, 'Invalid block number');

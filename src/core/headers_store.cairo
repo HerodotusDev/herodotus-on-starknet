@@ -368,7 +368,7 @@ mod HeadersStore {
 
                         let (words, words_byte_len) = *l.at(0);
                         assert(words.len() == 4 && words_byte_len == 32, 'Invalid parent_hash rlp');
-                        reverse_endianness_u256(words.as_u256_be(32).unwrap())
+                        words.as_u256_le(32).unwrap()
                     },
                 };
 
