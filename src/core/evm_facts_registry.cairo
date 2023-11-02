@@ -127,8 +127,10 @@ mod EVMFactsRegistry {
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::hashing::keccak::keccak_cairo_words64;
 
-    const EMPTY_STORAGE_HASH: u256 = 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421;
-    const EMPTY_CODE_HASH: u256 = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+    const EMPTY_STORAGE_HASH: u256 =
+        0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421;
+    const EMPTY_CODE_HASH: u256 =
+        0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
     const EMPTY_BALANCE: u256 = 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421;
     const EMPTY_NONCE: u256 = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
 
