@@ -397,7 +397,9 @@ fn test_remappers() {
         last_pos: 4,
         peaks: peaks.span(),
         proofs: proofs.span(),
-        left_neighbor: ProofElement { index: 4, value: 1688044344, proof: array![].span(), }
+        left_neighbor: Option::Some(
+            ProofElement { index: 4, value: 1688044344, proof: array![].span(), }
+        )
     };
     let timestamp = 1688044344; // Element to find (exact match)
     let corresponding_block_number = remapper_dispatcher

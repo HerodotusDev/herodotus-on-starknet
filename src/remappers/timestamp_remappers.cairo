@@ -291,12 +291,14 @@ mod TimestampRemappers {
             let mut proof_idx = 0; // Offset in the proofs array
             let mut left: u256 = 0; // Lower boundary (search)
             let mut right: u256 = elements_count; // Higher boundary (search)
+
+            let mut mid: u256 = 0;
             loop {
                 if left >= right {
                     break;
                 }
 
-                let mid: u256 = (left + right) / 2;
+                mid = (left + right) / 2;
                 let proof_element: @ProofElement = proofs.at(proof_idx);
                 assert(
                     (*proof_element.index).into() == leaf_index_to_mmr_index(mid + 1),
@@ -326,23 +328,26 @@ mod TimestampRemappers {
                 return Option::None(());
             }
             let closest_idx: u256 = left - 1;
-            let tree_closest_low_val = tree.left_neighbor;
 
-            assert(
-                tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
-                'Unexpected proof index (c)'
-            );
+            if closest_idx != mid {
+                // Verify the proof if it has not already been checked
+                let tree_closest_low_val = tree.left_neighbor.unwrap();
+                assert(
+                    tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
+                    'Unexpected proof index (c)'
+                );
 
-            let mmr = MMRTrait::new(root, tree.last_pos); // mmr was dropped
-            let is_valid_low_proof = mmr
-                .verify_proof(
-                    tree_closest_low_val.index,
-                    tree_closest_low_val.value.try_into().unwrap(),
-                    tree.peaks,
-                    tree_closest_low_val.proof,
-                )
-                .unwrap();
-            assert(is_valid_low_proof, 'Invalid proof');
+                let mmr = MMRTrait::new(root, tree.last_pos); // mmr was dropped
+                let is_valid_low_proof = mmr
+                    .verify_proof(
+                        tree_closest_low_val.index,
+                        tree_closest_low_val.value.try_into().unwrap(),
+                        tree.peaks,
+                        tree_closest_low_val.proof,
+                    )
+                    .unwrap();
+                assert(is_valid_low_proof, 'Invalid proof');
+            }
 
             return Option::Some(closest_idx);
         }
