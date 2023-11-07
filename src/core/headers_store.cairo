@@ -296,6 +296,7 @@ mod HeadersStore {
             let poseidon_hash = hash_words64(*headers_rlp.at(0));
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
+            let mut end_block = 0;
 
             let (mut decoded_rlp, mut rlp_byte_len) = (RLPItem::Bytes((array![].span(), 0)), 0);
 
@@ -315,6 +316,24 @@ mod HeadersStore {
                     .verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap())
                     .expect('MMR proof verification failed');
                 assert(valid_proof, 'Invalid proof');
+
+                match @decoded_rlp {
+                    RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                    RLPItem::List(l) => {
+                        let (start_block_words, start_block_byte_len) = *(*l).at(1);
+                        assert(start_block_words.len() == 1, 'Invalid start_block');
+
+                        let start_block_le = *start_block_words.at(0);
+                        start_block =
+                            reverse_endianness_u64(
+                                start_block_le, Option::Some(start_block_byte_len)
+                            )
+                            .into()
+                            - 1;
+
+                        end_block = start_block - headers_rlp.len().into() + 2;
+                    }
+                };
             } else {
                 match rlp_decode_list_lazy(*headers_rlp.at(0), array![0].span()) {
                     Result::Ok((d, d_l)) => {
@@ -328,6 +347,7 @@ mod HeadersStore {
 
                 let reference_block = reference_block.unwrap();
                 start_block = reference_block - 1;
+                end_block = start_block - headers_rlp.len().into() + 1;
 
                 let initial_blockhash = self.received_blocks.read(reference_block);
                 assert(initial_blockhash != Zeroable::zero(), 'Block not received');
@@ -354,18 +374,6 @@ mod HeadersStore {
                 let parent_hash: u256 = match decoded_rlp {
                     RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                     RLPItem::List(l) => {
-                        if i == 1 && reference_block.is_none() {
-                            let (start_block_words, start_block_byte_len) = *l.at(1);
-                            assert(start_block_words.len() == 1, 'Invalid start_block');
-
-                            let start_block_le = *start_block_words.at(0);
-                            start_block =
-                                reverse_endianness_u64(
-                                    start_block_le, Option::Some(start_block_byte_len)
-                                )
-                                .into();
-                        }
-
                         let (words, words_byte_len) = *l.at(0);
                         assert(words.len() == 4 && words_byte_len == 32, 'Invalid parent_hash rlp');
                         words.as_u256_le(32).unwrap()
@@ -409,7 +417,7 @@ mod HeadersStore {
                     Event::ProcessedBatch(
                         ProcessedBatch {
                             block_start: start_block,
-                            block_end: start_block - headers_rlp.len().into() + 1,
+                            block_end: end_block,
                             new_root: mmr.root,
                             new_size: mmr.last_pos,
                             mmr_id
