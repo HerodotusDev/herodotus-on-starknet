@@ -302,6 +302,8 @@ mod HeadersStore {
 
             if mmr_proof.is_some() {
                 assert(reference_block.is_none(), 'Cannot use proof AND ref block');
+                assert(headers_rlp.len() >= 2, 'Invalid headers rlp');
+
                 match rlp_decode_list_lazy(*headers_rlp.at(0), array![0, 8].span()) {
                     Result::Ok((d, d_l)) => {
                         decoded_rlp = d;
@@ -335,6 +337,8 @@ mod HeadersStore {
                     }
                 };
             } else {
+                assert(headers_rlp.len() >= 1, 'Invalid headers rlp');
+
                 match rlp_decode_list_lazy(*headers_rlp.at(0), array![0].span()) {
                     Result::Ok((d, d_l)) => {
                         decoded_rlp = d;
