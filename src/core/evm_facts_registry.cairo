@@ -256,6 +256,10 @@ mod EVMFactsRegistry {
             let mpt = MPTTrait::new(storage_hash);
             let rlp_value = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
 
+            if rlp_value.is_empty() {
+                return 0;
+            }
+
             let (item, _) = rlp_decode(rlp_value).expect('Invalid RLP value');
 
             match item {
