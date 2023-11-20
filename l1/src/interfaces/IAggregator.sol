@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.13;
+pragma solidity 0.8.21;
 
 interface IAggregator {
     /// @notice Returns the current root hash of the Keccak Merkle Mountain Range (MMR) tree

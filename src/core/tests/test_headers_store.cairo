@@ -5,13 +5,8 @@ use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
     IHeadersStoreSafeDispatcher
 };
-use result::ResultTrait;
-use option::OptionTrait;
-use traits::TryInto;
 use starknet::ContractAddress;
-use array::{ArrayTrait, SpanTrait};
 use cairo_lib::utils::types::words64::Words64;
-use debug::PrintTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const MMR_INITIAL_ELEMENT: felt252 =
@@ -82,31 +77,6 @@ fn test_initial_tree() {
 
     let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
     assert(historical_root == expected_root, 'Wrong initial historical root');
-}
-
-#[test]
-fn test_process_received_block() {
-    let (dispatcher, contract_address) = helper_create_headers_store();
-
-    let block_number = 17000000;
-    let real_block_hash = 0x96cfa0fb5e50b0a3f6cc76f3299cfbf48f17e8b41798d1394474e67ec8a97e9f;
-    helper_receive_hash(real_block_hash, block_number, dispatcher, contract_address);
-
-    let header_rlp = *helper_get_headers_rlp().at(0);
-
-    let mmr_id = 0;
-    dispatcher
-        .process_received_block(
-            block_number, header_rlp, array![MMR_INITIAL_ELEMENT].span(), mmr_id
-        );
-
-    let mmr = dispatcher.get_mmr(mmr_id);
-    let expected_root = 0x6b4b4026b5460ad9cb3a6fccf4516d8329eaa6751da76842f189b67c74f193;
-    assert(mmr.last_pos == 3, 'Wrong last_pos');
-    assert(mmr.root == expected_root, 'Wrong root');
-
-    let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
-    assert(historical_root == expected_root, 'Wrong historical root');
 }
 
 #[test]

@@ -14,7 +14,7 @@ mod TimestampRemappers {
     use cairo_lib::hashing::poseidon::{PoseidonHasher, hash_words64};
     use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
     use cairo_lib::data_structures::mmr::utils::{leaf_index_to_mmr_index};
-    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode};
+    use cairo_lib::encoding::rlp::{RLPItem, rlp_decode_list_lazy};
     use cairo_lib::utils::types::words64::{reverse_endianness_u64, bytes_used_u64};
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
@@ -111,21 +111,18 @@ mod TimestampRemappers {
             mapper_peaks: Peaks,
             origin_elements: Span<OriginElement>
         ) {
+            let len = origin_elements.len(); // Count of elements in the batch to append
+            assert(len != 0, 'Empty batch');
+
             // Fetch from storage
             let headers_store_addr = self.headers_store.read();
             let mut mapper = self.mappers.read(mapper_id);
             let mut mapper_mmr = self.mappers_mmrs.read(mapper_id);
 
             // Determine the expected block number of the first element in the batch
-            let mut expected_block = 0;
-            if (mapper.elements_count == 0) {
-                expected_block = mapper.start_block;
-            } else {
-                expected_block = mapper.start_block + mapper.elements_count + 1;
-            }
+            let mut expected_block = mapper.start_block + mapper.elements_count;
 
             let mut idx = 0;
-            let len = origin_elements.len(); // Count of elements in the batch to append
             let mut last_timestamp = 0; // Local to this batch
             let mut peaks = mapper_peaks;
             loop {
@@ -241,23 +238,22 @@ mod TimestampRemappers {
     #[generate_trait]
     impl InternalFunctions of InternalFunctionsTrait {
         fn extract_header_block_number_and_timestamp(header: Words64) -> (u256, u256) {
-            let (decoded_rlp, _) = rlp_decode(header).unwrap();
-            let (block_number, timestamp) = match decoded_rlp {
+            let (decoded_rlp, _) = rlp_decode_list_lazy(
+                header,
+                array![BLOCK_NUMBER_OFFSET_IN_HEADER_RLP, TIMESTAMP_OFFSET_IN_HEADER_RLP].span()
+            )
+                .unwrap();
+            let ((block_number, block_number_byte_len), (timestamp, timestamp_byte_len)) =
+                match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
-                    (
-                        (*(*l.at(BLOCK_NUMBER_OFFSET_IN_HEADER_RLP)).at(0)),
-                        (*(*l.at(TIMESTAMP_OFFSET_IN_HEADER_RLP)).at(0))
-                    )
+                    (*l.at(0), *l.at(1))
                 },
             };
             (
-                reverse_endianness_u64(
-                    block_number, Option::Some(bytes_used_u64(block_number).into())
-                )
+                reverse_endianness_u64(*block_number.at(0), Option::Some(block_number_byte_len))
                     .into(),
-                reverse_endianness_u64(timestamp, Option::Some(bytes_used_u64(timestamp).into()))
-                    .into()
+                reverse_endianness_u64(*timestamp.at(0), Option::Some(timestamp_byte_len)).into()
             )
         }
 
@@ -275,9 +271,6 @@ mod TimestampRemappers {
             // Fetch mapper and its last timestamp from storage
             let mapper = self.mappers.read(tree.mapper_id);
             let last_timestamp = mapper.last_timestamp;
-
-            // Retrieve the header store address
-            let headers_store_addr = self.headers_store.read();
 
             // Fetch MMR from history
             let root = self.mappers_mmrs_history.read((tree.mapper_id, tree.last_pos));
@@ -298,12 +291,14 @@ mod TimestampRemappers {
             let mut proof_idx = 0; // Offset in the proofs array
             let mut left: u256 = 0; // Lower boundary (search)
             let mut right: u256 = elements_count; // Higher boundary (search)
+
+            let mut mid: u256 = 0;
             loop {
                 if left >= right {
                     break;
                 }
 
-                let mid: u256 = (left + right) / 2;
+                mid = (left + right) / 2;
                 let proof_element: @ProofElement = proofs.at(proof_idx);
                 assert(
                     (*proof_element.index).into() == leaf_index_to_mmr_index(mid + 1),
@@ -315,7 +310,7 @@ mod TimestampRemappers {
                     .verify_proof(
                         index: *proof_element.index,
                         hash: mid_val.try_into().unwrap(),
-                        peaks: *proof_element.peaks,
+                        peaks: tree.peaks,
                         proof: *proof_element.proof,
                     )
                     .unwrap();
@@ -333,23 +328,26 @@ mod TimestampRemappers {
                 return Option::None(());
             }
             let closest_idx: u256 = left - 1;
-            let tree_closest_low_val = tree.left_neighbor.unwrap();
 
-            assert(
-                tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
-                'Unexpected proof index (c)'
-            );
+            if closest_idx != mid {
+                // Verify the proof if it has not already been checked
+                let tree_closest_low_val = tree.left_neighbor.unwrap();
+                assert(
+                    tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
+                    'Unexpected proof index (c)'
+                );
 
-            let mmr = MMRTrait::new(root, tree.last_pos); // mmr was dropped
-            let is_valid_low_proof = mmr
-                .verify_proof(
-                    tree_closest_low_val.index,
-                    tree_closest_low_val.value.try_into().unwrap(),
-                    tree_closest_low_val.peaks,
-                    tree_closest_low_val.proof,
-                )
-                .unwrap();
-            assert(is_valid_low_proof, 'Invalid proof');
+                let mmr = MMRTrait::new(root, tree.last_pos); // mmr was dropped
+                let is_valid_low_proof = mmr
+                    .verify_proof(
+                        tree_closest_low_val.index,
+                        tree_closest_low_val.value.try_into().unwrap(),
+                        tree.peaks,
+                        tree_closest_low_val.proof,
+                    )
+                    .unwrap();
+                assert(is_valid_low_proof, 'Invalid proof');
+            }
 
             return Option::Some(closest_idx);
         }
