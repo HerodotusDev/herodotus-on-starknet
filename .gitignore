@@ -2,3 +2,5 @@ target
 .DS_Store
 
 l1/broadcast/**
+
+.snfoundry_cache

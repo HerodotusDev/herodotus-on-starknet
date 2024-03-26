@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
+use snforge_std::{declare, ContractClassTrait, start_prank, stop_prank, CheatTarget};
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
     IHeadersStoreSafeDispatcher
@@ -14,20 +14,14 @@ const MMR_INITIAL_ELEMENT: felt252 =
 const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
 fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
-    let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
-    };
-    let contract_address = deploy(prepared).unwrap();
+    let contract = declare("HeadersStore");
+    let contract_address = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreDispatcher { contract_address }, contract_address)
 }
 
 fn helper_create_safe_headers_store() -> (IHeadersStoreSafeDispatcher, ContractAddress) {
-    let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
-    };
-    let contract_address = deploy(prepared).unwrap();
+    let contract = declare("HeadersStore");
+    let contract_address = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreSafeDispatcher { contract_address }, contract_address)
 }
 
@@ -37,12 +31,13 @@ fn helper_receive_hash(
     dispatcher: IHeadersStoreDispatcher,
     contract_address: ContractAddress
 ) {
-    start_prank(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.receive_hash(blockhash, block_number);
-    stop_prank(contract_address);
+    stop_prank(CheatTarget::One(contract_address));
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 fn test_receive_hash_wrong_address() {
     let (safe_dispatcher, _) = helper_create_safe_headers_store();
 
@@ -66,7 +61,7 @@ fn test_receive_hash() {
 
 #[test]
 fn test_initial_tree() {
-    let (dispatcher, contract_address) = helper_create_headers_store();
+    let (dispatcher, _) = helper_create_headers_store();
 
     let mmr_id = 0;
 

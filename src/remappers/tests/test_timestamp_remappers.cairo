@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
+use snforge_std::{declare, ContractClassTrait, start_prank, stop_prank, CheatTarget};
 use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::mmr::MMR;
 use cairo_lib::data_structures::mmr::mmr::MMRTrait;
@@ -15,27 +15,19 @@ use herodotus_eth_starknet::core::headers_store::{
 };
 
 fn deploy_headers_store() -> ContractAddress {
-    let class_hash = declare('HeadersStore');
+    let contract = declare("HeadersStore");
     let mut constructor_calldata = ArrayTrait::new();
     constructor_calldata.append(0);
 
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @constructor_calldata
-    };
-
-    deploy(prepared).unwrap()
+    contract.deploy(@constructor_calldata).unwrap()
 }
 
 fn deploy_timestamp_remappers(headers_store: ContractAddress) -> ContractAddress {
-    let class_hash = declare('TimestampRemappers');
+    let contract = declare("TimestampRemappers");
     let mut constructor_calldata: Array<felt252> = ArrayTrait::new();
     constructor_calldata.append(headers_store.into());
 
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @constructor_calldata
-    };
-
-    deploy(prepared).unwrap()
+    contract.deploy(@constructor_calldata).unwrap()
 }
 
 fn inner_test_proof(mmr: @MMR) {
@@ -78,7 +70,7 @@ fn prepare_mmr() -> MMR {
 
     let mut peaks_2 = ArrayTrait::new();
     peaks_2.append(0x5d44a3decb2b2e0cc71071f7b802f45dd792d064f0fc7316c46514f70f9891a);
-    mmr.append(4, peaks_2.span());
+    mmr.append(4, peaks_2.span()).unwrap();
 
     peaks_2.append(4);
     mmr.append(5, peaks_2.span()).unwrap();
@@ -376,12 +368,12 @@ fn test_remappers() {
     let headers_store_dispatcher = IHeadersStoreDispatcher { contract_address: headers_store };
     let mmr_id = 1; // First MMR
 
-    start_prank(headers_store, 0.try_into().unwrap());
+    start_prank(CheatTarget::One(headers_store), 0.try_into().unwrap());
     headers_store_dispatcher
         .create_branch_from_message(
             0x25aedbc0ddea804ce21d29a39f00358f68df0e462114f75b0576182d08db0, 4, 1
         );
-    stop_prank(headers_store);
+    stop_prank(CheatTarget::One(headers_store));
 
     inner_test_reindex_batch(remapper_dispatcher, mapper_id, mmr_id);
 
