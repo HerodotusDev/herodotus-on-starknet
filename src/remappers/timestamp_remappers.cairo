@@ -299,7 +299,8 @@ mod TimestampRemappers {
                 mid = (left + right) / 2;
                 let proof_element: @ProofElement = proofs.at(proof_idx);
                 assert(
-                    (*proof_element.index).into() == leaf_index_to_mmr_index(mid.try_into().unwrap() + 1),
+                    (*proof_element.index)
+                        .into() == leaf_index_to_mmr_index(mid.try_into().unwrap() + 1),
                     'Unexpected proof index'
                 );
 
@@ -331,7 +332,9 @@ mod TimestampRemappers {
                 // Verify the proof if it has not already been checked
                 let tree_closest_low_val = tree.left_neighbor.unwrap();
                 assert(
-                    tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx.try_into().unwrap() + 1),
+                    tree_closest_low_val
+                        .index
+                        .into() == leaf_index_to_mmr_index(closest_idx.try_into().unwrap() + 1),
                     'Unexpected proof index (c)'
                 );
 

@@ -21,4 +21,4 @@ exit_first = true
 [tool.sncast]
 account = "herodotus"
 network = "testnet"
-url = "https://starknet-testnet.public.blastapi.io"
+url = "https://starknet-sepolia.public.blastapi.io"
