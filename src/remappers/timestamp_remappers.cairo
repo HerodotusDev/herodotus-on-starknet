@@ -83,7 +83,7 @@ mod TimestampRemappers {
     // External
     //
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl TimestampRemappers of ITimestampRemappers<ContractState> {
         // Creates a new mapper and returns its ID.
         fn create_mapper(ref self: ContractState, start_block: u256) -> usize {
@@ -246,9 +246,7 @@ mod TimestampRemappers {
             let ((block_number, block_number_byte_len), (timestamp, timestamp_byte_len)) =
                 match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-                RLPItem::List(l) => {
-                    (*l.at(0), *l.at(1))
-                },
+                RLPItem::List(l) => { (*l.at(0), *l.at(1)) },
             };
             (
                 reverse_endianness_u64(*block_number.at(0), Option::Some(block_number_byte_len))
@@ -301,7 +299,7 @@ mod TimestampRemappers {
                 mid = (left + right) / 2;
                 let proof_element: @ProofElement = proofs.at(proof_idx);
                 assert(
-                    (*proof_element.index).into() == leaf_index_to_mmr_index(mid + 1),
+                    (*proof_element.index).into() == leaf_index_to_mmr_index(mid.try_into().unwrap() + 1),
                     'Unexpected proof index'
                 );
 
@@ -333,7 +331,7 @@ mod TimestampRemappers {
                 // Verify the proof if it has not already been checked
                 let tree_closest_low_val = tree.left_neighbor.unwrap();
                 assert(
-                    tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
+                    tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx.try_into().unwrap() + 1),
                     'Unexpected proof index (c)'
                 );
 

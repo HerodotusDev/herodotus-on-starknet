@@ -103,7 +103,7 @@ mod CommitmentsInbox {
         };
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl CommitmentsInbox of super::ICommitmentsInbox<ContractState> {
         // @inheritdoc ICommitmentsInbox
         fn get_headers_store(self: @ContractState) -> ContractAddress {
