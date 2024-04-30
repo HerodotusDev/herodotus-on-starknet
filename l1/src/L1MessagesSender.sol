@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.21;
 
-import {AbstractCommitmentsSender} from "./AbstractCommitmentsSender.sol";
+import {AbstractMessagesSender} from "./AbstractMessagesSender.sol";
 
 import {IStarknetCore} from "./interfaces/IStarknetCore.sol";
 import {IParentHashFetcher} from "./interfaces/IParentHashFetcher.sol";
 import {IAggregator} from "./interfaces/IAggregator.sol";
 
-contract L1CommitmentsSender is AbstractCommitmentsSender {
+contract L1MessagesSender is AbstractMessagesSender {
     constructor(
         IStarknetCore starknetCore_,
         uint256 l2RecipientAddr_,
         address aggregatorsFactoryAddr_,
         IParentHashFetcher _parentHashFetcher
     )
-        AbstractCommitmentsSender(
+        AbstractMessagesSender(
             starknetCore_,
             l2RecipientAddr_,
             aggregatorsFactoryAddr_,

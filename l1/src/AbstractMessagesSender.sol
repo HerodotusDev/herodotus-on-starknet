@@ -11,7 +11,7 @@ import {IParentHashFetcher} from "./interfaces/IParentHashFetcher.sol";
 
 import {Uint256Splitter} from "./lib/Uint256Splitter.sol";
 
-abstract contract AbstractCommitmentsSender is Ownable {
+abstract contract AbstractMessagesSender is Ownable {
     using Uint256Splitter for uint256;
 
     IStarknetCore public immutable starknetCore;
