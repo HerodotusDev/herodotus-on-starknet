@@ -7,13 +7,15 @@ import {IStarknetCore} from "./interfaces/IStarknetCore.sol";
 
 import {IAggregatorsFactory} from "./interfaces/IAggregatorsFactory.sol";
 import {IAggregator} from "./interfaces/IAggregator.sol";
+import {IParentHashFetcher} from "./interfaces/IParentHashFetcher.sol";
 
 import {Uint256Splitter} from "./lib/Uint256Splitter.sol";
 
-contract L1MessagesSender is Ownable {
+abstract contract AbstractCommitmentsSender is Ownable {
     using Uint256Splitter for uint256;
 
     IStarknetCore public immutable starknetCore;
+    IParentHashFetcher public immutable parentHashFetcher;
 
     uint256 public l2RecipientAddr;
 
@@ -33,45 +35,33 @@ contract L1MessagesSender is Ownable {
     constructor(
         IStarknetCore starknetCore_,
         uint256 l2RecipientAddr_,
-        address aggregatorsFactoryAddr_
+        address aggregatorsFactoryAddr_,
+        IParentHashFetcher _parentHashFetcher
     ) {
         starknetCore = starknetCore_;
+        parentHashFetcher = _parentHashFetcher;
         l2RecipientAddr = l2RecipientAddr_;
         aggregatorsFactory = IAggregatorsFactory(aggregatorsFactoryAddr_);
     }
 
     /// @notice Send an exact L1 parent hash to L2
-    /// @param blockNumber_ the child block of the requested parent hash
-    function sendExactParentHashToL2(uint256 blockNumber_) external payable {
-        bytes32 parentHash = blockhash(blockNumber_ - 1);
+    /// @param _parentHashFetcherCtx ABI encoded context for the parent hash fetcher
+    function sendExactParentHashToL2(
+        bytes calldata _parentHashFetcherCtx
+    ) external payable {
+        (
+            uint256 parentHashFetchedForBlock,
+            bytes32 parentHash
+        ) = parentHashFetcher.fetchParentHash(_parentHashFetcherCtx);
         require(parentHash != bytes32(0), "ERR_INVALID_BLOCK_NUMBER");
 
-        _sendBlockHashToL2(parentHash, blockNumber_);
-    }
-
-    /// @notice Send the L1 latest parent hash to L2
-    function sendLatestParentHashToL2() external payable {
-        bytes32 parentHash = blockhash(block.number - 1);
-        _sendBlockHashToL2(parentHash, block.number);
+        _sendBlockHashToL2(parentHash, parentHashFetchedForBlock);
     }
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
-    function sendPoseidonMMRTreeToL2(uint256 aggregatorId) external payable {
-        address existingAggregatorAddr = aggregatorsFactory.aggregatorsById(
-            aggregatorId
-        );
-
-        require(existingAggregatorAddr != address(0), "Unknown aggregator");
-
-        IAggregator aggregator = IAggregator(existingAggregatorAddr);
-        bytes32 poseidonMMRRoot = aggregator.getMMRPoseidonRoot();
-        uint256 mmrSize = aggregator.getMMRSize();
-
-        require(mmrSize >= 1, "Invalid tree size");
-        require(poseidonMMRRoot != bytes32(0), "Invalid root (Poseidon)");
-
-        _sendPoseidonMMRTreeToL2(poseidonMMRRoot, mmrSize, aggregatorId);
-    }
+    function sendPoseidonMMRTreeToL2(
+        uint256 aggregatorId
+    ) external payable virtual {}
 
     function _sendBlockHashToL2(
         bytes32 parentHash_,
