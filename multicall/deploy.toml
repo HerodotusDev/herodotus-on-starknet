@@ -3,7 +3,7 @@ call_type = "deploy"
 class_hash = "0x54af96825d987ca89cf320f7c5a8031017815d884cff1592e8ff6da309f3ca6"
 inputs = [
     "0x1",
-    "0x18e4a8e2badb5f5950758f46f8108e2c5d357b07",
+    "0x260FdcB223fBf581ee85FFe2bEf6C59Eb465dB28",
     "0x0",
     "0x5a6c0f84179d695f0b598cc5d0be50421c247da95cfe63e4cd66fc27f32dfe6",
 ]
