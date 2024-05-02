@@ -235,7 +235,7 @@ mod HeadersStore {
     }
 
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl HeadersStore of super::IHeadersStore<ContractState> {
         // @inheritdoc IHeadersStore
         fn get_commitments_inbox(self: @ContractState) -> ContractAddress {
@@ -309,9 +309,7 @@ mod HeadersStore {
                         decoded_rlp = d;
                         rlp_byte_len = d_l;
                     },
-                    Result::Err(_) => {
-                        panic_with_felt252('Invalid header rlp');
-                    }
+                    Result::Err(_) => { panic_with_felt252('Invalid header rlp'); }
                 };
 
                 let valid_proof = mmr
@@ -344,9 +342,7 @@ mod HeadersStore {
                         decoded_rlp = d;
                         rlp_byte_len = d_l;
                     },
-                    Result::Err(_) => {
-                        panic_with_felt252('Invalid header rlp');
-                    }
+                    Result::Err(_) => { panic_with_felt252('Invalid header rlp'); }
                 };
 
                 let reference_block = reference_block.unwrap();
@@ -380,7 +376,7 @@ mod HeadersStore {
                     RLPItem::List(l) => {
                         let (words, words_byte_len) = *l.at(0);
                         assert(words.len() == 4 && words_byte_len == 32, 'Invalid parent_hash rlp');
-                        words.as_u256_le(32).unwrap()
+                        words.as_u256_le().unwrap()
                     },
                 };
 
@@ -391,9 +387,7 @@ mod HeadersStore {
                         decoded_rlp = d;
                         rlp_byte_len = d_l;
                     },
-                    Result::Err(_) => {
-                        panic_with_felt252('Invalid header rlp');
-                    }
+                    Result::Err(_) => { panic_with_felt252('Invalid header rlp'); }
                 };
 
                 let mut last_word_byte_len = rlp_byte_len % 8;
@@ -503,7 +497,9 @@ mod HeadersStore {
             );
 
             let mut mmr: MMR = Default::default();
-            mmr.append(initial_poseidon_blockhash, array![].span());
+            mmr
+                .append(initial_poseidon_blockhash, array![].span())
+                .expect('Failed to append to MMR');
 
             let root = mmr.root;
             let last_pos = mmr.last_pos;

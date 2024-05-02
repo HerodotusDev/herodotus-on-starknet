@@ -1,0 +1,4 @@
+# Default profile
+[sncast.default]
+account = "herodotus"
+url = "https://free-rpc.nethermind.io/sepolia-juno"

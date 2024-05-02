@@ -167,7 +167,7 @@ mod EVMFactsRegistry {
         self.headers_store.write(headers_store);
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl EVMFactsRegistry of super::IEVMFactsRegistry<ContractState> {
         // @inheritdoc IEVMFactsRegistry
         fn get_headers_store(self: @ContractState) -> ContractAddress {
@@ -309,15 +309,9 @@ mod EVMFactsRegistry {
                     AccountField::StorageHash(_) => {
                         self.storage_hash.write((account, block), value);
                     },
-                    AccountField::CodeHash(_) => {
-                        self.code_hash.write((account, block), value);
-                    },
-                    AccountField::Balance(_) => {
-                        self.balance.write((account, block), value);
-                    },
-                    AccountField::Nonce(_) => {
-                        self.nonce.write((account, block), value);
-                    }
+                    AccountField::CodeHash(_) => { self.code_hash.write((account, block), value); },
+                    AccountField::Balance(_) => { self.balance.write((account, block), value); },
+                    AccountField::Nonce(_) => { self.nonce.write((account, block), value); }
                 };
 
                 i += 1;
@@ -373,7 +367,7 @@ mod EVMFactsRegistry {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
                 RLPItem::List(l) => {
                     let (state_root_words, _) = *l.at(0);
-                    state_root = state_root_words.as_u256_le(32).unwrap();
+                    state_root = state_root_words.as_u256_le().unwrap();
 
                     let (block_number_words, block_number_byte_len) = *l.at(1);
                     assert(block_number_words.len() == 1, 'Invalid block number');
@@ -433,18 +427,10 @@ mod EVMFactsRegistry {
 
                             let field = fields.at(i);
                             let (field_value, field_value_len) = match field {
-                                AccountField::StorageHash(_) => {
-                                    *l.at(2)
-                                },
-                                AccountField::CodeHash(_) => {
-                                    *l.at(3)
-                                },
-                                AccountField::Balance(_) => {
-                                    *l.at(1)
-                                },
-                                AccountField::Nonce(_) => {
-                                    *l.at(0)
-                                },
+                                AccountField::StorageHash(_) => { *l.at(2) },
+                                AccountField::CodeHash(_) => { *l.at(3) },
+                                AccountField::Balance(_) => { *l.at(1) },
+                                AccountField::Nonce(_) => { *l.at(0) },
                             };
 
                             account_fields.append(field_value.as_u256_be(field_value_len).unwrap());

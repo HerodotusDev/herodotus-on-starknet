@@ -11,8 +11,8 @@ casm = true
 
 [dependencies]
 starknet = "2.2.0"
-cairo_lib = { git = "https://github.com/HerodotusDev/cairo-lib.git" }
-snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.4.1" }
+cairo_lib = { git = "https://github.com/HerodotusDev/cairo-lib.git", branch = "update-cairo" }
+snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.20.1" }
 
 [tool.snforge]
 exit_first = true
@@ -21,4 +21,4 @@ exit_first = true
 [tool.sncast]
 account = "herodotus"
 network = "testnet"
-url = "https://starknet-testnet.public.blastapi.io"
+url = "https://starknet-sepolia.public.blastapi.io"
