@@ -127,6 +127,7 @@ trait IHeadersStore<TContractState> {
     );
 
     // @notice Creates a new MMR that is a clone of an already existing MMR
+    // or an empty MMR if mmr_id is 0 (in that case last_pos is ignored)
     // @param mmr_id The id of the MMR to clone
     // @param last_pos last_pos of the given MMR
     fn create_branch_from(ref self: TContractState, mmr_id: MmrId, last_pos: MmrSize);
@@ -226,13 +227,6 @@ mod HeadersStore {
     #[constructor]
     fn constructor(ref self: ContractState, commitments_inbox: ContractAddress) {
         self.commitments_inbox.write(commitments_inbox);
-
-        let mmr: MMR = MMRTrait::new(MMR_INITIAL_ROOT, 1);
-        let root = mmr.root;
-
-        self.mmr.write(0, mmr);
-        self.mmr_history.write((0, 1), root);
-        self.latest_mmr_id.write(0);
     }
 
 
@@ -264,6 +258,7 @@ mod HeadersStore {
         }
 
         // @inheritdoc IHeadersStore
+        // @return Id of the latest created MMR or 0 if no MMRs exist
         fn get_latest_mmr_id(self: @ContractState) -> MmrId {
             self.latest_mmr_id.read()
         }
@@ -526,9 +521,14 @@ mod HeadersStore {
         }
 
         // @inheritdoc IHeadersStore
-        fn create_branch_from(ref self: ContractState, mmr_id: MmrId, last_pos: MmrSize) {
+        fn create_branch_from(ref self: ContractState, mmr_id: MmrId, mut last_pos: MmrSize) {
             let latest_mmr_id = self.latest_mmr_id.read() + 1;
-            let root = self.mmr_history.read((mmr_id, last_pos));
+            let root = if mmr_id == 0 {
+                last_pos = 1;
+                MMR_INITIAL_ROOT
+            } else {
+                self.mmr_history.read((mmr_id, last_pos))
+            };
 
             let mmr = MMRTrait::new(root, last_pos);
 

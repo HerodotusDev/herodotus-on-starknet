@@ -63,7 +63,9 @@ fn test_receive_hash() {
 fn test_initial_tree() {
     let (dispatcher, _) = helper_create_headers_store();
 
-    let mmr_id = 0;
+    dispatcher.create_branch_from(0, 0);
+    let mmr_id = dispatcher.get_latest_mmr_id();
+    assert(mmr_id == 1, 'new mmr invalid id');
 
     let mmr = dispatcher.get_mmr(mmr_id);
     let expected_root = MMR_INITIAL_ROOT;
@@ -84,7 +86,8 @@ fn test_process_batch_form_message() {
 
     let headers_rlp = helper_get_headers_rlp();
 
-    let mmr_id = 0;
+    dispatcher.create_branch_from(0, 0);
+    let mmr_id = 1;
     dispatcher
         .process_batch(
             headers_rlp,
