@@ -4,6 +4,9 @@ use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::data_structures::mmr::mmr::MMR;
 
+type MmrId = usize;
+type MmrSize = usize;
+
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
     // @notice Returns the address of the CommitmentsInbox contract
@@ -13,31 +16,31 @@ trait IHeadersStore<TContractState> {
     // @notice Returns the MMR with a given id
     // @param mmr_id The id of the MMR
     // @return The MMR with the given id
-    fn get_mmr(self: @TContractState, mmr_id: usize) -> MMR;
+    fn get_mmr(self: @TContractState, mmr_id: MmrId) -> MMR;
 
     // @notice Returns the root of the MMR with a given id
     // @param mmr_id The id of the MMR
     // @return The root of the MMR with the given id
-    fn get_mmr_root(self: @TContractState, mmr_id: usize) -> felt252;
+    fn get_mmr_root(self: @TContractState, mmr_id: MmrId) -> felt252;
 
     // @notice Returns the size of the MMR with a given id
     // @param mmr_id The id of the MMR
     // @return The size of the MMR with the given id
-    fn get_mmr_size(self: @TContractState, mmr_id: usize) -> usize;
+    fn get_mmr_size(self: @TContractState, mmr_id: MmrId) -> MmrSize;
 
     // @notice Returns the parent blockhash of a given block number, received from L1 and send throught the CommitmentsInbox
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
 
     // @notice Returns the latest MMR id
     // @dev MMR IDs are incremental
-    fn get_latest_mmr_id(self: @TContractState) -> usize;
+    fn get_latest_mmr_id(self: @TContractState) -> MmrId;
 
     // @notice Returns the root of the MMR with a given id and size
     // @dev The reason why we need to get historical roots is because we don't want MMR proofs to expire
     // @param mmr_id The id of the MMR
     // @param size The size of the MMR
     // @return The root of the MMR with the given id and size
-    fn get_historical_root(self: @TContractState, mmr_id: usize, size: usize) -> felt252;
+    fn get_historical_root(self: @TContractState, mmr_id: MmrId, size: MmrSize) -> felt252;
 
     // @notice Receives a parent blockhash and the corresponding block number from L1 and saves it
     // @dev This function can only be called by the CommitmentsInbox contract
@@ -53,11 +56,11 @@ trait IHeadersStore<TContractState> {
     // @return True if the proof is valid and the element is present, false otherwise
     fn verify_mmr_inclusion(
         self: @TContractState,
-        index: usize,
+        index: MmrSize,
         poseidon_blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
-        mmr_id: usize,
+        mmr_id: MmrId,
     ) -> bool;
 
     // @notice Verifies an inclusion proof in an MMR
@@ -71,12 +74,12 @@ trait IHeadersStore<TContractState> {
     // @return True if the proof is valid and the element is present, false otherwise
     fn verify_historical_mmr_inclusion(
         self: @TContractState,
-        index: usize,
+        index: MmrSize,
         poseidon_blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
-        mmr_id: usize,
-        last_pos: usize,
+        mmr_id: MmrId,
+        last_pos: MmrSize,
     ) -> bool;
 
     // @notice Appends a batch of block hashes to the MMR starting from a specific block, either from a hash received from L1 or from an MMR element
@@ -92,9 +95,9 @@ trait IHeadersStore<TContractState> {
         ref self: TContractState,
         headers_rlp: Span<Words64>,
         mmr_peaks: Peaks,
-        mmr_id: usize,
+        mmr_id: MmrId,
         reference_block: Option<u256>,
-        mmr_index: Option<usize>,
+        mmr_index: Option<MmrSize>,
         mmr_proof: Option<Proof>,
     );
 
@@ -104,7 +107,7 @@ trait IHeadersStore<TContractState> {
     // @param aggregator_id The id of the L1 aggregator
     // @dev This function can only be called by the CommitmentsInbox contract
     fn create_branch_from_message(
-        ref self: TContractState, root: felt252, last_pos: usize, aggregator_id: usize
+        ref self: TContractState, root: felt252, last_pos: MmrSize, aggregator_id: usize
     );
 
 
@@ -117,18 +120,18 @@ trait IHeadersStore<TContractState> {
     // @param last_pos last_pos of the given MMR
     fn create_branch_single_element(
         ref self: TContractState,
-        index: usize,
+        index: MmrSize,
         initial_poseidon_blockhash: felt252,
         peaks: Peaks,
         proof: Proof,
-        mmr_id: usize,
-        last_pos: usize
+        mmr_id: MmrId,
+        last_pos: MmrSize
     );
 
     // @notice Creates a new MMR that is a clone of an already existing MMR
     // @param mmr_id The id of the MMR to clone
     // @param last_pos last_pos of the given MMR
-    fn create_branch_from(ref self: TContractState, mmr_id: usize, last_pos: usize);
+    fn create_branch_from(ref self: TContractState, mmr_id: MmrId, last_pos: MmrSize);
 }
 
 
@@ -148,6 +151,7 @@ mod HeadersStore {
     use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode_list_lazy};
+    use super::{MmrId, MmrSize};
 
     const MMR_INITIAL_ROOT: felt252 =
         0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
@@ -155,12 +159,11 @@ mod HeadersStore {
     #[storage]
     struct Storage {
         commitments_inbox: ContractAddress,
-        mmr: LegacyMap::<usize, MMR>,
-        // (id, size) => root
-        mmr_history: LegacyMap::<(usize, usize), felt252>,
+        mmr: LegacyMap::<MmrId, MMR>,
+        mmr_history: LegacyMap::<(MmrId, MmrSize), felt252>,
         // block_number => parent blockhash
         received_blocks: LegacyMap::<u256, u256>,
-        latest_mmr_id: usize
+        latest_mmr_id: MmrId
     }
 
     #[event]
@@ -184,8 +187,8 @@ mod HeadersStore {
     struct ProcessedBlock {
         block_number: u256,
         new_root: felt252,
-        new_size: usize,
-        mmr_id: usize
+        new_size: MmrSize,
+        mmr_id: MmrId
     }
 
     #[derive(Drop, starknet::Event)]
@@ -193,33 +196,33 @@ mod HeadersStore {
         block_start: u256,
         block_end: u256,
         new_root: felt252,
-        new_size: usize,
-        mmr_id: usize
+        new_size: MmrSize,
+        mmr_id: MmrId
     }
 
     #[derive(Drop, starknet::Event)]
     struct BranchCreatedFromElement {
-        mmr_id: usize,
+        mmr_id: MmrId,
         root: felt252,
-        last_pos: usize,
-        detached_from_mmr_id: usize,
-        mmr_index: usize
+        last_pos: MmrSize,
+        detached_from_mmr_id: MmrId,
+        mmr_index: MmrSize
     }
 
     #[derive(Drop, starknet::Event)]
     struct BranchCreatedFromL1 {
-        mmr_id: usize,
+        mmr_id: MmrId,
         root: felt252,
-        last_pos: usize,
+        last_pos: MmrSize,
         aggregator_id: usize
     }
 
     #[derive(Drop, starknet::Event)]
     struct BranchCreatedClone {
-        mmr_id: usize,
+        mmr_id: MmrId,
         root: felt252,
-        last_pos: usize,
-        detached_from_mmr_id: usize
+        last_pos: MmrSize,
+        detached_from_mmr_id: MmrId
     }
 
     #[constructor]
@@ -243,17 +246,17 @@ mod HeadersStore {
         }
 
         // @inheritdoc IHeadersStore
-        fn get_mmr(self: @ContractState, mmr_id: usize) -> MMR {
+        fn get_mmr(self: @ContractState, mmr_id: MmrId) -> MMR {
             self.mmr.read(mmr_id)
         }
 
         // @inheritdoc IHeadersStore
-        fn get_mmr_root(self: @ContractState, mmr_id: usize) -> felt252 {
+        fn get_mmr_root(self: @ContractState, mmr_id: MmrId) -> felt252 {
             self.mmr.read(mmr_id).root
         }
 
         // @inheritdoc IHeadersStore
-        fn get_mmr_size(self: @ContractState, mmr_id: usize) -> usize {
+        fn get_mmr_size(self: @ContractState, mmr_id: MmrId) -> MmrSize {
             self.mmr.read(mmr_id).last_pos
         }
 
@@ -263,12 +266,12 @@ mod HeadersStore {
         }
 
         // @inheritdoc IHeadersStore
-        fn get_latest_mmr_id(self: @ContractState) -> usize {
+        fn get_latest_mmr_id(self: @ContractState) -> MmrId {
             self.latest_mmr_id.read()
         }
 
         // @inheritdoc IHeadersStore
-        fn get_historical_root(self: @ContractState, mmr_id: usize, size: usize) -> felt252 {
+        fn get_historical_root(self: @ContractState, mmr_id: MmrId, size: MmrSize) -> felt252 {
             self.mmr_history.read((mmr_id, size))
         }
 
@@ -287,9 +290,9 @@ mod HeadersStore {
             ref self: ContractState,
             headers_rlp: Span<Words64>,
             mmr_peaks: Peaks,
-            mmr_id: usize,
+            mmr_id: MmrId,
             reference_block: Option<u256>,
-            mmr_index: Option<usize>,
+            mmr_index: Option<MmrSize>,
             mmr_proof: Option<Proof>,
         ) {
             let mut mmr = self.mmr.read(mmr_id);
@@ -298,7 +301,8 @@ mod HeadersStore {
             let mut start_block = 0;
             let mut end_block = 0;
 
-            let (mut decoded_rlp, mut rlp_byte_len) = (RLPItem::Bytes((array![].span(), 0)), 0);
+            let mut decoded_rlp = RLPItem::Bytes((array![].span(), 0));
+            let mut rlp_byte_len = 0;
 
             if mmr_proof.is_some() {
                 assert(reference_block.is_none(), 'Cannot use proof AND ref block');
@@ -427,11 +431,11 @@ mod HeadersStore {
         // @inheritdoc IHeadersStore
         fn verify_mmr_inclusion(
             self: @ContractState,
-            index: usize,
+            index: MmrSize,
             poseidon_blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
-            mmr_id: usize,
+            mmr_id: MmrId,
         ) -> bool {
             let mmr = self.mmr.read(mmr_id);
 
@@ -443,12 +447,12 @@ mod HeadersStore {
         // @inheritdoc IHeadersStore
         fn verify_historical_mmr_inclusion(
             self: @ContractState,
-            index: usize,
+            index: MmrSize,
             poseidon_blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
-            mmr_id: usize,
-            last_pos: usize,
+            mmr_id: MmrId,
+            last_pos: MmrSize,
         ) -> bool {
             let root = self.mmr_history.read((mmr_id, last_pos));
             let mmr = MMRTrait::new(root, last_pos);
@@ -460,7 +464,7 @@ mod HeadersStore {
 
         // @inheritdoc IHeadersStore
         fn create_branch_from_message(
-            ref self: ContractState, root: felt252, last_pos: usize, aggregator_id: usize
+            ref self: ContractState, root: felt252, last_pos: MmrSize, aggregator_id: usize
         ) {
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
@@ -482,12 +486,12 @@ mod HeadersStore {
         // @inheritdoc IHeadersStore
         fn create_branch_single_element(
             ref self: ContractState,
-            index: usize,
+            index: MmrSize,
             initial_poseidon_blockhash: felt252,
             peaks: Peaks,
             proof: Proof,
-            mmr_id: usize,
-            last_pos: usize
+            mmr_id: MmrId,
+            last_pos: MmrSize
         ) {
             assert(
                 HeadersStore::verify_historical_mmr_inclusion(
@@ -524,7 +528,7 @@ mod HeadersStore {
         }
 
         // @inheritdoc IHeadersStore
-        fn create_branch_from(ref self: ContractState, mmr_id: usize, last_pos: usize) {
+        fn create_branch_from(ref self: ContractState, mmr_id: MmrId, last_pos: MmrSize) {
             let latest_mmr_id = self.latest_mmr_id.read() + 1;
             let root = self.mmr_history.read((mmr_id, last_pos));
 
