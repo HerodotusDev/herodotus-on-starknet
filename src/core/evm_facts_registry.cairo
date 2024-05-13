@@ -2,6 +2,7 @@ use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::utils::types::words64::Words64;
+use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
 
 #[derive(Drop, Serde)]
 enum AccountField {
@@ -52,11 +53,11 @@ trait IEVMFactsRegistry<TContractState> {
         block_header_rlp: Words64,
         account: felt252,
         mpt_proof: Span<Words64>,
-        mmr_index: usize,
+        mmr_index: MmrSize,
         mmr_peaks: Peaks,
         mmr_proof: Proof,
-        mmr_id: usize,
-        last_pos: usize,
+        mmr_id: MmrId,
+        last_pos: MmrSize,
     ) -> Span<u256>;
 
     // @notice Gets a storage slot from a proven account
@@ -85,11 +86,11 @@ trait IEVMFactsRegistry<TContractState> {
         block_header_rlp: Words64,
         account: felt252,
         mpt_proof: Span<Words64>,
-        mmr_index: usize,
+        mmr_index: MmrSize,
         mmr_peaks: Peaks,
         mmr_proof: Proof,
-        mmr_id: usize,
-        last_pos: usize,
+        mmr_id: MmrId,
+        last_pos: MmrSize,
     );
 
     // @notice Proves a storage slot at a given block
@@ -121,6 +122,7 @@ mod EVMFactsRegistry {
     use cairo_lib::utils::types::words64::{
         Words64, Words64Trait, reverse_endianness_u64, bytes_used_u64
     };
+    use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
@@ -200,11 +202,11 @@ mod EVMFactsRegistry {
             block_header_rlp: Words64,
             account: felt252,
             mpt_proof: Span<Words64>,
-            mmr_index: usize,
+            mmr_index: MmrSize,
             mmr_peaks: Peaks,
             mmr_proof: Proof,
-            mmr_id: usize,
-            last_pos: usize,
+            mmr_id: MmrId,
+            last_pos: MmrSize,
         ) -> Span<u256> {
             let (_, fields) = InternalFunctions::get_account(
                 self,
@@ -277,11 +279,11 @@ mod EVMFactsRegistry {
             block_header_rlp: Words64,
             account: felt252,
             mpt_proof: Span<Words64>,
-            mmr_index: usize,
+            mmr_index: MmrSize,
             mmr_peaks: Peaks,
             mmr_proof: Proof,
-            mmr_id: usize,
-            last_pos: usize,
+            mmr_id: MmrId,
+            last_pos: MmrSize,
         ) {
             let (block, field_values) = InternalFunctions::get_account(
                 @self,
@@ -344,11 +346,11 @@ mod EVMFactsRegistry {
             block_header_rlp: Words64,
             account: felt252,
             mpt_proof: Span<Words64>,
-            mmr_index: usize,
+            mmr_index: MmrSize,
             mmr_peaks: Peaks,
             mmr_proof: Proof,
-            mmr_id: usize,
-            last_pos: usize,
+            mmr_id: MmrId,
+            last_pos: MmrSize,
         ) -> (u256, Span<u256>) {
             let blockhash = hash_words64(block_header_rlp);
 

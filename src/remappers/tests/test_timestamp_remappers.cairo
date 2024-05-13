@@ -8,11 +8,12 @@ use cairo_lib::utils::bitwise::bit_length;
 use cairo_lib::utils::math::pow;
 use herodotus_eth_starknet::remappers::interface::{
     ITimestampRemappersDispatcherTrait, ITimestampRemappersDispatcher, BinarySearchTree,
-    ProofElement, OriginElement
+    ProofElement, OriginElement, MapperId
 };
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
 };
+use herodotus_eth_starknet::core::common::MmrId;
 
 fn deploy_headers_store() -> ContractAddress {
     let contract = declare("HeadersStore");
@@ -83,7 +84,7 @@ fn prepare_mmr() -> MMR {
 }
 
 fn inner_test_reindex_batch(
-    remapper_dispatcher: ITimestampRemappersDispatcher, mapper_id: usize, mmr_id: usize
+    remapper_dispatcher: ITimestampRemappersDispatcher, mapper_id: MapperId, mmr_id: MmrId
 ) {
     let header = array![
         0x7323c119a02202f9,

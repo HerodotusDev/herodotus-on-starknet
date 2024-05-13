@@ -3,9 +3,7 @@ use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::data_structures::mmr::mmr::MMR;
-
-type MmrId = usize;
-type MmrSize = usize;
+use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
 
 #[starknet::interface]
 trait IHeadersStore<TContractState> {
@@ -151,7 +149,7 @@ mod HeadersStore {
     use cairo_lib::hashing::poseidon::hash_words64;
     use cairo_lib::utils::bitwise::reverse_endianness_u256;
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode_list_lazy};
-    use super::{MmrId, MmrSize};
+    use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
 
     const MMR_INITIAL_ROOT: felt252 =
         0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;

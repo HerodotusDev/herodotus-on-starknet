@@ -6,9 +6,10 @@
 
 #[starknet::contract]
 mod TimestampRemappers {
+    use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
     use herodotus_eth_starknet::remappers::interface::{
         ITimestampRemappers, Headers, OriginElement, Proof, Peaks, Words64, ProofElement,
-        BinarySearchTree
+        BinarySearchTree, MapperId
     };
     use starknet::ContractAddress;
     use cairo_lib::hashing::poseidon::{PoseidonHasher, hash_words64};
@@ -33,17 +34,17 @@ mod TimestampRemappers {
 
     #[derive(Drop, starknet::Event)]
     struct MapperCreated {
-        mapper_id: usize,
+        mapper_id: MapperId,
         start_block: u256
     }
 
     #[derive(Drop, starknet::Event)]
     struct RemappedBlocks {
-        mapper_id: usize,
+        mapper_id: MapperId,
         start_block: u256,
         end_block: u256,
         mmr_root: felt252,
-        mmr_size: usize
+        mmr_size: MmrSize
     }
 
     //
@@ -64,13 +65,10 @@ mod TimestampRemappers {
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
-        // id => mapper
-        mappers: LegacyMap::<usize, Mapper>,
-        mappers_count: usize,
-        // id => mmr
-        mappers_mmrs: LegacyMap::<usize, MMR>,
-        // (id, size) => root
-        mappers_mmrs_history: LegacyMap::<(usize, usize), felt252>,
+        mappers: LegacyMap::<MapperId, Mapper>,
+        mappers_count: MapperId,
+        mappers_mmrs: LegacyMap::<MapperId, MMR>,
+        mappers_mmrs_history: LegacyMap::<(MapperId, MmrSize), felt252>,
     }
 
     #[constructor]
@@ -86,7 +84,7 @@ mod TimestampRemappers {
     #[abi(embed_v0)]
     impl TimestampRemappers of ITimestampRemappers<ContractState> {
         // Creates a new mapper and returns its ID.
-        fn create_mapper(ref self: ContractState, start_block: u256) -> usize {
+        fn create_mapper(ref self: ContractState, start_block: u256) -> MapperId {
             let mmr: MMR = Default::default();
 
             let mapper_id = self.mappers_count.read();
@@ -107,7 +105,7 @@ mod TimestampRemappers {
         // Adds elements from other trusted data sources to the given mapper.
         fn reindex_batch(
             ref self: ContractState,
-            mapper_id: usize,
+            mapper_id: MapperId,
             mapper_peaks: Peaks,
             origin_elements: Span<OriginElement>
         ) {
@@ -218,7 +216,7 @@ mod TimestampRemappers {
         }
 
         // Getter for the last timestamp of a given mapper.
-        fn get_last_mapper_timestamp(self: @ContractState, mapper_id: usize) -> u256 {
+        fn get_last_mapper_timestamp(self: @ContractState, mapper_id: MapperId) -> u256 {
             let mapper = self.mappers.read(mapper_id);
             mapper.last_timestamp
         }

@@ -6,6 +6,7 @@ use herodotus_eth_starknet::core::headers_store::{
 use herodotus_eth_starknet::core::evm_facts_registry::{
     IEVMFactsRegistryDispatcherTrait, IEVMFactsRegistryDispatcher, AccountField
 };
+use herodotus_eth_starknet::core::common::MmrSize;
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::hashing::poseidon::{hash_words64, PoseidonHasher};
@@ -13,12 +14,12 @@ use cairo_lib::data_structures::mmr::{proof::Proof, peaks::Peaks};
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const TEST_MMR_ROOT: felt252 = 0x37a31db9c80c54ec632f04f7984155dc43591a3f8c891adfbf34e75331e0eec;
-const TEST_MMR_SIZE: usize = 8;
+const TEST_MMR_SIZE: MmrSize = 8;
 const TEST_ACCOUNT: felt252 = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 const TEST_BLOCK: u256 = 17000000;
 
 fn helper_create_facts_registry(
-    mmr_root: felt252, mmr_size: usize
+    mmr_root: felt252, mmr_size: MmrSize
 ) -> (IEVMFactsRegistryDispatcher, ContractAddress) {
     let contract = declare("HeadersStore");
     let contract_address = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();

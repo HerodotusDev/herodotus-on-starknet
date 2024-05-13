@@ -46,6 +46,7 @@ mod CommitmentsInbox {
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
+    use herodotus_eth_starknet::core::common::MmrSize;
 
     #[storage]
     struct Storage {
@@ -83,7 +84,7 @@ mod CommitmentsInbox {
     #[derive(Drop, starknet::Event)]
     struct MMRReceived {
         root: felt252,
-        last_pos: usize,
+        last_pos: MmrSize,
         aggregator_id: usize
     }
 
@@ -203,7 +204,7 @@ mod CommitmentsInbox {
         ref self: ContractState,
         from_address: felt252,
         root: felt252,
-        last_pos: usize,
+        last_pos: MmrSize,
         aggregator_id: usize
     ) {
         assert(from_address == self.l1_message_sender.read().into(), 'Invalid sender');
