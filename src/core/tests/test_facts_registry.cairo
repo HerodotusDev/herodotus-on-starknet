@@ -21,15 +21,15 @@ const TEST_BLOCK: u256 = 17000000;
 fn helper_create_facts_registry(
     mmr_root: felt252, mmr_size: MmrSize
 ) -> (IEVMFactsRegistryDispatcher, ContractAddress) {
-    let contract = declare("HeadersStore");
-    let contract_address = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
+    let contract = declare("HeadersStore").unwrap();
+    let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     let mut headers_store = IHeadersStoreDispatcher { contract_address };
     start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     headers_store.create_branch_from_message(mmr_root, mmr_size, 0);
     stop_prank(CheatTarget::One(contract_address));
 
-    let contract = declare("EVMFactsRegistry");
-    let contract_address = contract.deploy(@array![contract_address.into()]).unwrap();
+    let contract = declare("EVMFactsRegistry").unwrap();
+    let (contract_address, _) = contract.deploy(@array![contract_address.into()]).unwrap();
     (IEVMFactsRegistryDispatcher { contract_address }, contract_address)
 }
 
@@ -80,7 +80,8 @@ fn test_prove_account() {
 
 #[test]
 fn test_prove_storage() {
-    // Expected key based on proof: 0x290decd | 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
+    // Expected key based on proof: 0x290decd |
+    // 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
     let (dispatcher, _) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
 
     // Testing block 17000000
@@ -115,7 +116,8 @@ fn test_prove_storage() {
 
 #[test]
 fn test_prove_storage_empty() {
-    // Expected key based on proof: 0x290decd | 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
+    // Expected key based on proof: 0x290decd |
+    // 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
     let (dispatcher, _) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
 
     // Testing block 17000000

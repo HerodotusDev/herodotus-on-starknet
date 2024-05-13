@@ -16,19 +16,21 @@ use herodotus_eth_starknet::core::headers_store::{
 use herodotus_eth_starknet::core::common::MmrId;
 
 fn deploy_headers_store() -> ContractAddress {
-    let contract = declare("HeadersStore");
+    let contract = declare("HeadersStore").unwrap();
     let mut constructor_calldata = ArrayTrait::new();
     constructor_calldata.append(0);
 
-    contract.deploy(@constructor_calldata).unwrap()
+    let (address, _) = contract.deploy(@constructor_calldata).unwrap();
+    address
 }
 
 fn deploy_timestamp_remappers(headers_store: ContractAddress) -> ContractAddress {
-    let contract = declare("TimestampRemappers");
+    let contract = declare("TimestampRemappers").unwrap();
     let mut constructor_calldata: Array<felt252> = ArrayTrait::new();
     constructor_calldata.append(headers_store.into());
 
-    contract.deploy(@constructor_calldata).unwrap()
+    let (address, _) = contract.deploy(@constructor_calldata).unwrap();
+    address
 }
 
 fn inner_test_proof(mmr: @MMR) {
@@ -347,7 +349,8 @@ fn inner_test_reindex_batch(
         },
     ];
     remapper_dispatcher.reindex_batch(mapper_id, ArrayTrait::new().span(), origin_elements.span());
-// From this point on, mapper_peaks has root 0x215ea4dbc30f0b14338d306f0035277c856c486126cd34966a82ead2a0a1c01 and 4 as elements count
+// From this point on, mapper_peaks has root
+// 0x215ea4dbc30f0b14338d306f0035277c856c486126cd34966a82ead2a0a1c01 and 4 as elements count
 }
 
 #[test]

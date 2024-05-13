@@ -14,14 +14,14 @@ const MMR_INITIAL_ELEMENT: felt252 =
 const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
 fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
-    let contract = declare("HeadersStore");
-    let contract_address = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
+    let contract = declare("HeadersStore").unwrap();
+    let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreDispatcher { contract_address }, contract_address)
 }
 
 fn helper_create_safe_headers_store() -> (IHeadersStoreSafeDispatcher, ContractAddress) {
-    let contract = declare("HeadersStore");
-    let contract_address = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
+    let contract = declare("HeadersStore").unwrap();
+    let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreSafeDispatcher { contract_address }, contract_address)
 }
 

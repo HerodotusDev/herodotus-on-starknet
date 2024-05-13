@@ -4,7 +4,7 @@ version = 1
 [[package]]
 name = "cairo_lib"
 version = "0.2.0"
-source = "git+https://github.com/HerodotusDev/cairo-lib.git?branch=update-cairo#c00222c907cbfd381d28749a2dc2fab0eac6beae"
+source = "git+https://github.com/HerodotusDev/cairo-lib.git?branch=update-cairo#b0f93a15f09b5b9962d4dc45ddfdb05f9790291a"
 
 [[package]]
 name = "herodotus_eth_starknet"
@@ -16,5 +16,5 @@ dependencies = [
 
 [[package]]
 name = "snforge_std"
-version = "0.20.1"
-source = "git+https://github.com/foundry-rs/starknet-foundry.git?tag=v0.20.1#fea2db8f2b20148cc15ee34b08de12028eb42942"
+version = "0.23.0"
+source = "git+https://github.com/foundry-rs/starknet-foundry.git?tag=v0.23.0#f2bff8f796763ada77fe6033ec1b034ceee22abd"
