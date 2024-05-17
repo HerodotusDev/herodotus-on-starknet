@@ -370,12 +370,12 @@ fn test_remappers() {
     inner_test_proof(@mmr);
 
     let headers_store_dispatcher = IHeadersStoreDispatcher { contract_address: headers_store };
-    let mmr_id = 1; // First MMR
+    let mmr_id = 0x123; // First MMR
 
     start_prank(CheatTarget::One(headers_store), 0.try_into().unwrap());
     headers_store_dispatcher
         .create_branch_from_message(
-            0x25aedbc0ddea804ce21d29a39f00358f68df0e462114f75b0576182d08db0, 4, 1
+            0x25aedbc0ddea804ce21d29a39f00358f68df0e462114f75b0576182d08db0, 4, 1, mmr_id
         );
     stop_prank(CheatTarget::One(headers_store));
 

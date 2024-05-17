@@ -109,7 +109,8 @@ trait IEVMFactsRegistry<TContractState> {
     );
 }
 
-// @notice Contract that stores all the proven facts, entrypoint for applications using with Herodotus
+// @notice Contract that stores all the proven facts, entrypoint for applications using with
+// Herodotus
 #[starknet::contract]
 mod EVMFactsRegistry {
     use starknet::ContractAddress;

@@ -128,7 +128,8 @@ mod TimestampRemappers {
                     break ();
                 }
 
-                // 1. Verify that the block number is correct (i.e., matching with the expected block)
+                // 1. Verify that the block number is correct (i.e., matching with the expected
+                // block)
                 let origin_element: @OriginElement = origin_elements.at(idx);
                 let (origin_element_block_number, origin_element_timestamp) =
                     InternalFunctions::extract_header_block_number_and_timestamp(

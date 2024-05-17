@@ -33,20 +33,24 @@ trait ICommitmentsInbox<TContractState> {
     // @dev This function is only callable by the owner
     fn renounce_ownership(ref self: TContractState);
 
-    // @notice receives a parent blockhash and the corresponding block number, simulating L1 messaging, and sends it to the HeadersStore
-    // @dev This function is only callable by the owner, ownership will be renounced in mainnet
+    // @notice receives a parent blockhash and the corresponding block number, simulating L1
+    // messaging, and sends it to the HeadersStore
+    // @dev This function is only callable by the owner,
+    // ownership will be renounced in mainnet
     fn receive_commitment_owner(ref self: TContractState, parent_hash: u256, block_number: u256);
 }
 
-// @notice The contract that receives the commitments from L1, both individual blocks and proven MMRs, sending them to the HeadersStore
-// @dev The contract ownership will be renounced in mainnet, it is only used for testing purposes
+// @notice The contract that receives the commitments from L1, both individual blocks and proven
+// MMRs, sending them to the HeadersStore
+// @dev The contract ownership will be renounced in mainnet,
+// it is only used for testing purposes
 #[starknet::contract]
 mod CommitmentsInbox {
     use starknet::{ContractAddress, get_caller_address, EthAddress};
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
-    use herodotus_eth_starknet::core::common::MmrSize;
+    use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
 
     #[storage]
     struct Storage {
@@ -177,8 +181,10 @@ mod CommitmentsInbox {
         }
     }
 
-    // @notice receives a parent blockhash and the corresponding block number from L1, and sends it to the HeadersStore
-    // @param from_address The address of the sender, checking that it is the L1 contract
+    // @notice receives a parent blockhash and the corresponding block number from L1, and sends it
+    // to the HeadersStore
+    // @param from_address The address of the sender, checking that it is the L1
+    // contract
     // @param blockhash The parent blockhash of the block
     // @param block_number The block number of the block
     #[l1_handler]
@@ -199,19 +205,21 @@ mod CommitmentsInbox {
     // @param root The root of the MMR
     // @param last_pos The last position of the MMR
     // @param aggregator_id The aggregator id of the proven MMR
+    // @param mmr_id The id of the MMR
     #[l1_handler]
     fn receive_mmr(
         ref self: ContractState,
         from_address: felt252,
         root: felt252,
         last_pos: MmrSize,
-        aggregator_id: usize
+        aggregator_id: usize,
+        mmr_id: MmrId
     ) {
         assert(from_address == self.l1_message_sender.read().into(), 'Invalid sender');
 
         let contract_address = self.headers_store.read();
         IHeadersStoreDispatcher { contract_address }
-            .create_branch_from_message(root, last_pos, aggregator_id);
+            .create_branch_from_message(root, last_pos, aggregator_id, mmr_id);
 
         self.emit(Event::MMRReceived(MMRReceived { root, last_pos, aggregator_id }));
     }

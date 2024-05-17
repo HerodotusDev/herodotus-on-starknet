@@ -5,6 +5,7 @@ use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
     IHeadersStoreSafeDispatcher
 };
+use herodotus_eth_starknet::core::common::{MmrSize, MmrId};
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
 
@@ -60,12 +61,46 @@ fn test_receive_hash() {
 }
 
 #[test]
+fn test_create_branch_from_message() {
+    let (dispatcher, contract_address) = helper_create_safe_headers_store();
+
+    let mmr_id_1 = 0x5a93;
+    let mmr_id_2 = 0xcd82;
+    let root = 0x123123123;
+    let size = 10;
+
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+
+    // Create MMR.
+    assert(dispatcher.get_mmr_size(mmr_id_1).unwrap() == 0, 'Initial mmr size should be 0');
+    dispatcher.create_branch_from_message(root, size, 0, mmr_id_1).unwrap();
+    assert(dispatcher.get_mmr_size(mmr_id_1).unwrap() == size, 'Mmr size mismatch');
+    assert(dispatcher.get_mmr_root(mmr_id_1).unwrap() == root, 'Mmr root mismatch');
+
+    // Creating MMR with ID 0 is not allowed.
+    assert(dispatcher.create_branch_from_message(root, size, 0, 0).is_err(), 'Mmr ID 0 should fail');
+
+    // Both root and size 0 is not allowed.
+    assert(dispatcher.create_branch_from_message(0, 0, 0, mmr_id_2).is_err(), 'Root and size 0 should fail');
+
+    // Creating MMR with the same ID should fail.
+    assert(dispatcher.create_branch_from_message(root, size, 0, mmr_id_1).is_err(), 'MMR already exists should fail');
+
+    // Create another MMR.
+    assert(dispatcher.get_mmr_size(mmr_id_2).unwrap() == 0, 'Initial mmr size should be 0');
+    dispatcher.create_branch_from_message(root, size, 0, mmr_id_2).unwrap();
+    assert(dispatcher.get_mmr_size(mmr_id_2).unwrap() == size, 'Mmr size mismatch');
+    assert(dispatcher.get_mmr_root(mmr_id_2).unwrap() == root, 'Mmr root mismatch');
+
+    stop_prank(CheatTarget::One(contract_address));
+}
+
+#[test]
 fn test_initial_tree() {
     let (dispatcher, _) = helper_create_headers_store();
 
-    dispatcher.create_branch_from(0, 0);
-    let mmr_id = dispatcher.get_latest_mmr_id();
-    assert(mmr_id == 1, 'new mmr invalid id');
+    let mmr_id = 1;
+    dispatcher.create_branch_from(0, 0, mmr_id);
 
     let mmr = dispatcher.get_mmr(mmr_id);
     let expected_root = MMR_INITIAL_ROOT;
@@ -86,8 +121,8 @@ fn test_process_batch_form_message() {
 
     let headers_rlp = helper_get_headers_rlp();
 
-    dispatcher.create_branch_from(0, 0);
     let mmr_id = 1;
+    dispatcher.create_branch_from(0, 0, mmr_id);
     dispatcher
         .process_batch(
             headers_rlp,

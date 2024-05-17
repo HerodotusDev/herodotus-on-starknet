@@ -26,15 +26,13 @@ trait IHeadersStore<TContractState> {
     // @return The size of the MMR with the given id
     fn get_mmr_size(self: @TContractState, mmr_id: MmrId) -> MmrSize;
 
-    // @notice Returns the parent blockhash of a given block number, received from L1 and send throught the CommitmentsInbox
+    // @notice Returns the parent blockhash of a given block number, received from L1 and send
+    // throught the CommitmentsInbox
     fn get_received_block(self: @TContractState, block_number: u256) -> u256;
 
-    // @notice Returns the latest MMR id
-    // @dev MMR IDs are incremental
-    fn get_latest_mmr_id(self: @TContractState) -> MmrId;
-
     // @notice Returns the root of the MMR with a given id and size
-    // @dev The reason why we need to get historical roots is because we don't want MMR proofs to expire
+    // @dev The reason why we need to get historical roots is because we don't want MMR proofs to
+    // expire
     // @param mmr_id The id of the MMR
     // @param size The size of the MMR
     // @return The root of the MMR with the given id and size
@@ -80,15 +78,18 @@ trait IHeadersStore<TContractState> {
         last_pos: MmrSize,
     ) -> bool;
 
-    // @notice Appends a batch of block hashes to the MMR starting from a specific block, either from a hash received from L1 or from an MMR element
-    // @param headers_rlp The RLP-encoded headers
-    // @param mmr_peaks The peaks of the MMR
+    // @notice Appends a batch of block hashes to the MMR starting from a specific block, either
+    // from a hash received from L1 or from an MMR element @param headers_rlp The RLP-encoded
+    // headers @param mmr_peaks The peaks of the MMR
     // @param mmr_id The id of the MMR
-    // @param reference_block A block whose hash was receiven from L1 (if starting from MMR element, None)
+    // @param reference_block A block whose hash was receiven from L1 (if starting from MMR element,
+    // None)
     // @param mmr_index The index of the starting blockhash in the MMR (if starting from L1, None)
-    // @param mmr_proof The MMR inclusion porrof of the starting blockhash (if starting from L1, None)
-    // @dev If the starting blockhash was received from L1, then reference_block must be provided, and mmr_index and mmr_proof must be None
-    // @dev If the starting blockhash is present in the MMR, then mmr_index and mmr_proof must be provided, and reference_block must be None
+    // @param mmr_proof The MMR inclusion porrof of the starting blockhash (if starting from L1,
+    // None)
+    // @dev If the starting blockhash was received from L1, then reference_block must be provided,
+    // and mmr_index and mmr_proof must be None @dev If the starting blockhash is present in the
+    // MMR, then mmr_index and mmr_proof must be provided, and reference_block must be None
     fn process_batch(
         ref self: TContractState,
         headers_rlp: Span<Words64>,
@@ -103,9 +104,14 @@ trait IHeadersStore<TContractState> {
     // @param root The root of the MMR
     // @param last_pos The size of the MMR
     // @param aggregator_id The id of the L1 aggregator
+    // @param mmr_id The id of the new MMR
     // @dev This function can only be called by the CommitmentsInbox contract
     fn create_branch_from_message(
-        ref self: TContractState, root: felt252, last_pos: MmrSize, aggregator_id: usize
+        ref self: TContractState,
+        root: felt252,
+        last_pos: MmrSize,
+        aggregator_id: usize,
+        mmr_id: MmrId
     );
 
 
@@ -123,20 +129,24 @@ trait IHeadersStore<TContractState> {
         peaks: Peaks,
         proof: Proof,
         mmr_id: MmrId,
-        last_pos: MmrSize
+        last_pos: MmrSize,
+        new_mmr_id: MmrId
     );
 
     // @notice Creates a new MMR that is a clone of an already existing MMR
     // or an empty MMR if mmr_id is 0 (in that case last_pos is ignored)
     // @param mmr_id The id of the MMR to clone
     // @param last_pos last_pos of the given MMR
-    fn create_branch_from(ref self: TContractState, mmr_id: MmrId, last_pos: MmrSize);
+    // @param new_mmr_id The id of the new MMR
+    fn create_branch_from(
+        ref self: TContractState, mmr_id: MmrId, last_pos: MmrSize, new_mmr_id: MmrId
+    );
 }
 
 
 // @notice Contract responsible for storing all the block hashes
 // @dev The contract keeps track of multiple MMRs (refered to as branches), each with a different id
-// @dev The contract also keeps track of historical roots and corresponding sizes of every MMR, 
+// @dev The contract also keeps track of historical roots and corresponding sizes of every MMR,
 #[starknet::contract]
 mod HeadersStore {
     use starknet::{ContractAddress, get_caller_address};
@@ -162,7 +172,6 @@ mod HeadersStore {
         mmr_history: LegacyMap::<(MmrId, MmrSize), felt252>,
         // block_number => parent blockhash
         received_blocks: LegacyMap::<u256, u256>,
-        latest_mmr_id: MmrId
     }
 
     #[event]
@@ -255,12 +264,6 @@ mod HeadersStore {
         // @inheritdoc IHeadersStore
         fn get_received_block(self: @ContractState, block_number: u256) -> u256 {
             self.received_blocks.read(block_number)
-        }
-
-        // @inheritdoc IHeadersStore
-        // @return Id of the latest created MMR or 0 if no MMRs exist
-        fn get_latest_mmr_id(self: @ContractState) -> MmrId {
-            self.latest_mmr_id.read()
         }
 
         // @inheritdoc IHeadersStore
@@ -457,16 +460,24 @@ mod HeadersStore {
 
         // @inheritdoc IHeadersStore
         fn create_branch_from_message(
-            ref self: ContractState, root: felt252, last_pos: MmrSize, aggregator_id: usize
+            ref self: ContractState,
+            root: felt252,
+            last_pos: MmrSize,
+            aggregator_id: usize,
+            mmr_id: MmrId
         ) {
+            assert(mmr_id != 0, 'Cannot create mmr with id 0');
+            assert(root != 0 || last_pos != 0, 'root=0 & last_pos=0 not allowed');
+
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
 
-            let mmr_id = self.latest_mmr_id.read() + 1;
+            let existing_mmr = self.mmr.read(mmr_id);
+            assert(existing_mmr.root == 0 && existing_mmr.last_pos == 0, 'MMR ID already exists');
+
             let mmr = MMRTrait::new(root, last_pos);
             self.mmr.write(mmr_id, mmr);
             self.mmr_history.write((mmr_id, last_pos), root);
-            self.latest_mmr_id.write(mmr_id);
 
             self
                 .emit(
@@ -484,8 +495,14 @@ mod HeadersStore {
             peaks: Peaks,
             proof: Proof,
             mmr_id: MmrId,
-            last_pos: MmrSize
+            last_pos: MmrSize,
+            new_mmr_id: MmrId
         ) {
+            assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
+
+            let existing_mmr = self.mmr.read(mmr_id);
+            assert(existing_mmr.root == 0 && existing_mmr.last_pos == 0, 'MMR ID already exists');
+
             assert(
                 HeadersStore::verify_historical_mmr_inclusion(
                     @self, index, initial_poseidon_blockhash, peaks, proof, mmr_id, last_pos
@@ -501,16 +518,14 @@ mod HeadersStore {
             let root = mmr.root;
             let last_pos = mmr.last_pos;
 
-            let latest_mmr_id = self.latest_mmr_id.read() + 1;
-            self.mmr.write(latest_mmr_id, mmr);
-            self.mmr_history.write((latest_mmr_id, last_pos), root);
-            self.latest_mmr_id.write(latest_mmr_id);
+            self.mmr.write(new_mmr_id, mmr);
+            self.mmr_history.write((new_mmr_id, last_pos), root);
 
             self
                 .emit(
                     Event::BranchCreatedFromElement(
                         BranchCreatedFromElement {
-                            mmr_id: latest_mmr_id,
+                            mmr_id: new_mmr_id,
                             root,
                             last_pos,
                             detached_from_mmr_id: mmr_id,
@@ -521,8 +536,11 @@ mod HeadersStore {
         }
 
         // @inheritdoc IHeadersStore
-        fn create_branch_from(ref self: ContractState, mmr_id: MmrId, mut last_pos: MmrSize) {
-            let latest_mmr_id = self.latest_mmr_id.read() + 1;
+        fn create_branch_from(
+            ref self: ContractState, mmr_id: MmrId, mut last_pos: MmrSize, new_mmr_id: MmrId
+        ) {
+            assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
+
             let root = if mmr_id == 0 {
                 last_pos = 1;
                 MMR_INITIAL_ROOT
@@ -530,17 +548,16 @@ mod HeadersStore {
                 self.mmr_history.read((mmr_id, last_pos))
             };
 
-            let mmr = MMRTrait::new(root, last_pos);
+            let new_mmr = MMRTrait::new(root, last_pos);
 
-            self.mmr.write(latest_mmr_id, mmr);
-            self.mmr_history.write((latest_mmr_id, last_pos), root);
-            self.latest_mmr_id.write(latest_mmr_id);
+            self.mmr.write(new_mmr_id, new_mmr);
+            self.mmr_history.write((new_mmr_id, last_pos), root);
 
             self
                 .emit(
                     Event::BranchCreatedClone(
                         BranchCreatedClone {
-                            mmr_id: latest_mmr_id, root, last_pos, detached_from_mmr_id: mmr_id
+                            mmr_id: new_mmr_id, root, last_pos, detached_from_mmr_id: mmr_id
                         }
                     )
                 );

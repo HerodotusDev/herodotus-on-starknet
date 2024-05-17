@@ -25,7 +25,7 @@ fn helper_create_facts_registry(
     let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     let mut headers_store = IHeadersStoreDispatcher { contract_address };
     start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
-    headers_store.create_branch_from_message(mmr_root, mmr_size, 0);
+    headers_store.create_branch_from_message(mmr_root, mmr_size, 0, 1);
     stop_prank(CheatTarget::One(contract_address));
 
     let contract = declare("EVMFactsRegistry").unwrap();
