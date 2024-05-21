@@ -8,6 +8,7 @@ use herodotus_eth_starknet::core::headers_store::{
 use herodotus_eth_starknet::core::common::{MmrSize, MmrId};
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
+use cairo_lib::data_structures::mmr::mmr::MMRTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const MMR_INITIAL_ELEMENT: felt252 =
@@ -35,6 +36,169 @@ fn helper_receive_hash(
     start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.receive_hash(blockhash, block_number);
     stop_prank(CheatTarget::One(contract_address));
+}
+
+#[test]
+#[available_gas(99999999)]
+fn test_header_block_1() {
+    let headers_rlp = array![
+        array![
+            0x64dd60e4a0fc01f9,
+            0x4c54f284013c491f,
+            0xcf69fedcb4e3cf9b,
+            0x0d1b29ed8a4f05a8,
+            0x4dcc1da05e02a0dd,
+            0xb585ab7a5dc7dee8,
+            0x4512d31ad4ccb667,
+            0x42a1f013748a941b,
+            0x0042944793d440fd,
+            0x0000000000000000,
+            0x0000000000000000,
+            0xedfc36fc32a01100,
+            0x9319629f76c5000d,
+            0x2a57fdbe486254cd,
+            0x3dc181f13929b4f5,
+            0xb5350f77a0c70890,
+            0x58aff8b90f301ca1,
+            0x2a7c97ac1a555144,
+            0x27ab16def38f5914,
+            0x82468fa0ce42063b,
+            0x7bf6ce1c3a5b5782,
+            0xb7e9521cac238426,
+            0x697018cba3bda32c,
+            0x0001b93b44a845dd,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x8280c3c901840280,
+            0x80b0dbd6648429b7,
+            0x5c67599946e432a0,
+            0xa80937f4a9d1d3ee,
+            0xf84428719d685d05,
+            0x289ef4c9db34aa20,
+            0x000000000000886c,
+            0x555e4239840000
+        ]
+            .span(),
+        array![
+            0xffe62d10a0fc01f9,
+            0x48b5b8c90c4801b0,
+            0xe46af4d44cc305fd,
+            0xea90db93937591aa,
+            0x4dcc1da07d880904,
+            0xb585ab7a5dc7dee8,
+            0x4512d31ad4ccb667,
+            0x42a1f013748a941b,
+            0x0042944793d440fd,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x8350600f4ca01100,
+            0x56f3150a8a78d66f,
+            0x73d2b84cef2d199b,
+            0x42bed64a1ea39943,
+            0xc494f04da0dcb31e,
+            0xb948bfaaea99f413,
+            0x5c0bb3233cd8d16f,
+            0x2d6bc9f9efa595ec,
+            0x5d713ca075e82e5d,
+            0xde6fd4cc97256dd9,
+            0x5b0a3eb1e4a56d04,
+            0xc9e63e0cf62f0a7d,
+            0x0001b9ea0096ee2f,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x8280c3c901840180,
+            0x80aedbd66484f5f9,
+            0x5c67599946e432a0,
+            0xa80937f4a9d1d3ee,
+            0xf84428719d685d05,
+            0x289ef4c9db34aa20,
+            0x000000000000886c,
+            0x009d693a840000
+        ]
+            .span()
+    ]
+        .span();
+
+    let mut mmr = MMRTrait::new(
+        root: 0x78ece8884698aadc91f067cf2d0d54a955e458ab6cd2ebc18fe815a3aafb43, last_pos: 263
+    );
+    let mmr_peaks = array![
+        0x735d9916958a088b58e320e015ba24e93ad034159fe0551c31cbb69d5be0a05,
+        0x0e4829e42415b71f12d9d936cb22bc50cd97f4a9737852454deeca9b49c59a2,
+        0x38aaa5bd29a41a3818b28eff66365d8ea7dd20380456f27b832f1091503a961
+    ]
+        .span();
+    let mmr_proof = array![].span();
+    let mmr_id = 1;
+
+    let (dispatcher, contract_address) = helper_create_headers_store();
+
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0);
+    stop_prank(CheatTarget::One(contract_address));
+    assert(dispatcher.get_mmr_root(mmr_id) == mmr.root, 'Root not set');
+
+    dispatcher.process_batch(headers_rlp, mmr_peaks, mmr_id, Option::None, Option::Some(mmr.last_pos), Option::Some(mmr_proof));
 }
 
 #[test]
