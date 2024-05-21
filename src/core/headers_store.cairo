@@ -328,7 +328,7 @@ mod HeadersStore {
                             .into()
                             - 1;
 
-                        end_block = start_block - headers_rlp.len().into() + 2;
+                        end_block = (start_block + 2) - headers_rlp.len().into();
                     }
                 };
             } else {
