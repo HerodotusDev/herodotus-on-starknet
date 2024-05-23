@@ -16,3 +16,6 @@ jobs:
       
       - name: Format code
         run: scarb fmt --check
+
+      - name: Test
+        run: snforge test
