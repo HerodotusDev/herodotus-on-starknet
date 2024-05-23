@@ -451,6 +451,9 @@ mod HeadersStore {
             last_pos: MmrSize,
         ) -> bool {
             let root = self.mmr_history.read((mmr_id, last_pos));
+
+            assert(root != 0, 'MMR doesn\'t exist');
+
             let mmr = MMRTrait::new(root, last_pos);
 
             mmr
@@ -467,7 +470,7 @@ mod HeadersStore {
             mmr_id: MmrId
         ) {
             assert(mmr_id != 0, 'Cannot create mmr with id 0');
-            assert(root != 0 || last_pos != 0, 'root=0 & last_pos=0 not allowed');
+            assert(root != 0, 'root cannot be 0');
 
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
@@ -498,9 +501,10 @@ mod HeadersStore {
             last_pos: MmrSize,
             new_mmr_id: MmrId
         ) {
+            assert(mmr_id != 0, 'Invalid mmr id 0');
             assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
 
-            let existing_mmr = self.mmr.read(mmr_id);
+            let existing_mmr = self.mmr.read(new_mmr_id);
             assert(existing_mmr.root == 0 && existing_mmr.last_pos == 0, 'MMR ID already exists');
 
             assert(
