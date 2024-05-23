@@ -1,0 +1,13 @@
+name: CI
+on:
+  push:
+  merge_group:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      uses: asdf-vm/actions/install@v2
+      with:
+        command: "scarb fmt --check"
