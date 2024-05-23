@@ -56,7 +56,7 @@ contract L1MessagesSender is Ownable {
     }
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
-    function sendPoseidonMMRTreeToL2(uint256 aggregatorId) external payable {
+    function sendPoseidonMMRTreeToL2(uint256 aggregatorId, uint256 mmrId) external payable {
         address existingAggregatorAddr = aggregatorsFactory.aggregatorsById(
             aggregatorId
         );
@@ -70,7 +70,7 @@ contract L1MessagesSender is Ownable {
         require(mmrSize >= 1, "Invalid tree size");
         require(poseidonMMRRoot != bytes32(0), "Invalid root (Poseidon)");
 
-        _sendPoseidonMMRTreeToL2(poseidonMMRRoot, mmrSize, aggregatorId);
+        _sendPoseidonMMRTreeToL2(poseidonMMRRoot, mmrSize, aggregatorId, mmrId);
     }
 
     function _sendBlockHashToL2(
@@ -97,13 +97,15 @@ contract L1MessagesSender is Ownable {
     function _sendPoseidonMMRTreeToL2(
         bytes32 poseidonMMRRoot,
         uint256 mmrSize,
-        uint256 aggregatorId
+        uint256 aggregatorId,
+        uint256 mmrId
     ) internal {
-        uint256[] memory message = new uint256[](3);
+        uint256[] memory message = new uint256[](4);
 
         message[0] = uint256(poseidonMMRRoot);
         message[1] = mmrSize;
         message[2] = aggregatorId;
+        message[3] = mmrId;
 
         // Pass along msg.value
         starknetCore.sendMessageToL2{value: msg.value}(

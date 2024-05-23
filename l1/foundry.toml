@@ -5,11 +5,13 @@ libs = ["lib"]
 gas_reports = ["*"]
 optimizer = true
 optimizer_runs = 20000
+solc = "0.8.21"
+evm_version = "shanghai"
 
 [rpc_endpoints]
-goerli = "https://rpc.ankr.com/eth_goerli"
+sepolia = "https://sepolia.drpc.org"
 
 [etherscan]
-goerli = { key = "${ETHERSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

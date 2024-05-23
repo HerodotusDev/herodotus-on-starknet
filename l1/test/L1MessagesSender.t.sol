@@ -10,12 +10,12 @@ contract L1MessagesSenderTest is Test {
     L1MessagesSender public sender;
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("goerli"));
+        vm.createSelectFork(vm.rpcUrl("sepolia"));
 
         sender = new L1MessagesSender(
-            IStarknetCore(0xde29d060D45901Fb19ED6C6e959EB22d8626708e),
-            0x07bf6b32382276bFF5341f810A6811233A9591228642F60160129629448a21b6,
-            0xB8Cb7707b5160eaE8931e0cf02B563a5CeA75F09
+            IStarknetCore(0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057),
+            0x002e94a2344485429762F272c4Cf80F7378b30e1E9A34d662e0ba282135CC916,
+            0x70C61dd17b7207B450Cb7DeDC92C1707A07a1213
         );
     }
 
@@ -35,7 +35,9 @@ contract L1MessagesSenderTest is Test {
         // This aggregator id must exist in the factory
         uint256 aggregatorId = 1;
 
+        uint256 mmrId = 4;
+
         // Value must be greater than 0
-        sender.sendPoseidonMMRTreeToL2{value: 1}(aggregatorId);
+        sender.sendPoseidonMMRTreeToL2{value: 1}(aggregatorId, mmrId);
     }
 }
