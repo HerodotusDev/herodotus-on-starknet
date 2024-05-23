@@ -198,7 +198,15 @@ fn test_header_block_1() {
     stop_prank(CheatTarget::One(contract_address));
     assert(dispatcher.get_mmr_root(mmr_id) == mmr.root, 'Root not set');
 
-    dispatcher.process_batch(headers_rlp, mmr_peaks, mmr_id, Option::None, Option::Some(mmr.last_pos), Option::Some(mmr_proof));
+    dispatcher
+        .process_batch(
+            headers_rlp,
+            mmr_peaks,
+            mmr_id,
+            Option::None,
+            Option::Some(mmr.last_pos),
+            Option::Some(mmr_proof)
+        );
 }
 
 #[test]
@@ -242,13 +250,21 @@ fn test_create_branch_from_message() {
     assert(dispatcher.get_mmr_root(mmr_id_1).unwrap() == root, 'Mmr root mismatch');
 
     // Creating MMR with ID 0 is not allowed.
-    assert(dispatcher.create_branch_from_message(root, size, 0, 0).is_err(), 'Mmr ID 0 should fail');
+    assert(
+        dispatcher.create_branch_from_message(root, size, 0, 0).is_err(), 'Mmr ID 0 should fail'
+    );
 
     // Both root and size 0 is not allowed.
-    assert(dispatcher.create_branch_from_message(0, 0, 0, mmr_id_2).is_err(), 'Root and size 0 should fail');
+    assert(
+        dispatcher.create_branch_from_message(0, 0, 0, mmr_id_2).is_err(),
+        'Root and size 0 should fail'
+    );
 
     // Creating MMR with the same ID should fail.
-    assert(dispatcher.create_branch_from_message(root, size, 0, mmr_id_1).is_err(), 'MMR already exists should fail');
+    assert(
+        dispatcher.create_branch_from_message(root, size, 0, mmr_id_1).is_err(),
+        'MMR already exists should fail'
+    );
 
     // Create another MMR.
     assert(dispatcher.get_mmr_size(mmr_id_2).unwrap() == 0, 'Initial mmr size should be 0');
