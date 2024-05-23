@@ -391,7 +391,7 @@ fn test_create_branch_single_element() {
 }
 
 #[test]
-fn test_initial_tree() {
+fn test_create_branch_new() {
     let (dispatcher, _) = helper_create_headers_store();
 
     let mmr_id = 1;
@@ -404,6 +404,25 @@ fn test_initial_tree() {
 
     let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
     assert(historical_root == expected_root, 'Wrong initial historical root');
+}
+
+#[test]
+fn test_create_branch_from() {
+    let (dispatcher, contract_address) = helper_create_safe_headers_store();
+
+    // Setup mmr with 7 elements
+    let mmr_id = 0x4a02;
+    let items = array![MMR_INITIAL_ELEMENT, 0x4AF3, 0xB1C2, 0x68D0, 0xE923, 0x0F4B, 0x37A8];
+    let mmr = helper_create_mmr_with_items(items.span());
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id).unwrap();
+    stop_prank(CheatTarget::One(contract_address));
+
+    let new_mmr_id = 0x8cae;
+    dispatcher.create_branch_from(mmr_id, mmr.last_pos, new_mmr_id).unwrap();
+    let new_mmr = dispatcher.get_mmr(new_mmr_id).unwrap();
+    assert(new_mmr.root == mmr.root, 'new mmr root mismatch');
+    assert(new_mmr.last_pos == mmr.last_pos, 'new mmr last_pos mismatch');
 }
 
 #[test]
