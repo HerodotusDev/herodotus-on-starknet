@@ -277,7 +277,10 @@ fn test_create_branch_from_message() {
     let mmr_id_3 = 0x8124a;
 
     // Sender other than commitments inbox should fail.
-    assert(dispatcher.create_branch_from_message(root, size, 0, mmr_id_3).is_err(), 'only commitments inbox');
+    assert(
+        dispatcher.create_branch_from_message(root, size, 0, mmr_id_3).is_err(),
+        'only commitments inbox'
+    );
 }
 
 fn helper_create_mmr_with_items(mut items: Span<felt252>) -> MMR {
@@ -289,9 +292,7 @@ fn helper_create_mmr_with_items(mut items: Span<felt252>) -> MMR {
                 let (_root, new_peaks) = mmr.append(*item, peaks).unwrap();
                 peaks = new_peaks;
             },
-            Option::None => {
-                break;
-            }
+            Option::None => { break; }
         }
     };
     mmr
@@ -313,30 +314,80 @@ fn test_create_branch_single_element() {
     let new_mmr_id = 10;
     let index = 4;
     let hash = 0xB1C2;
-    let proof = array![0x68D0, 0x5e58373c626c427a3d2b417634424a93ca5efa8cde09ac9747aa03f3afecb8d].span();
-    let peaks = array![0x7cd5f93b55c504e2919127e13b025c86cbb135e14efb41a97c56a3f61bc48d8, 0x73cc8b5fc3ab909c2b7f33c34bd341df3b1d328f29c59bbe97dc53a17bbc33f, 0x37A8].span();
-
+    let proof = array![0x68D0, 0x5e58373c626c427a3d2b417634424a93ca5efa8cde09ac9747aa03f3afecb8d]
+        .span();
+    let peaks = array![
+        0x7cd5f93b55c504e2919127e13b025c86cbb135e14efb41a97c56a3f61bc48d8,
+        0x73cc8b5fc3ab909c2b7f33c34bd341df3b1d328f29c59bbe97dc53a17bbc33f,
+        0x37A8
+    ]
+        .span();
 
     // New MMR with ID 0 should fail
-    assert(dispatcher.create_branch_single_element(index, hash, peaks, proof, mmr_id, mmr.last_pos, 0).is_err(), 'new mmr id 0 should fail');
+    assert(
+        dispatcher
+            .create_branch_single_element(index, hash, peaks, proof, mmr_id, mmr.last_pos, 0)
+            .is_err(),
+        'new mmr id 0 should fail'
+    );
 
     // Source MMR with ID 0 should fail
-    assert(dispatcher.create_branch_single_element(index, hash, peaks, proof, 0, mmr.last_pos, new_mmr_id).is_err(), 'src mmr id 0 should fail');
+    assert(
+        dispatcher
+            .create_branch_single_element(index, hash, peaks, proof, 0, mmr.last_pos, new_mmr_id)
+            .is_err(),
+        'src mmr id 0 should fail'
+    );
 
     // Source MMR must exist
-    assert(dispatcher.create_branch_single_element(index, hash, peaks, proof, 2, mmr.last_pos, new_mmr_id).is_err(), 'no src mmr should fail');
+    assert(
+        dispatcher
+            .create_branch_single_element(index, hash, peaks, proof, 2, mmr.last_pos, new_mmr_id)
+            .is_err(),
+        'no src mmr should fail'
+    );
 
     // Invalid proof should fail
-    assert(dispatcher.create_branch_single_element(index, hash, peaks, array![0x68D0, 0x5e58373c626c427a3d2b417634424a93ca5efa8cde09ac9747aa03f3afecb8d, 0x1234].span(), mmr_id, mmr.last_pos, new_mmr_id).is_err(), 'invalid proof should fail');
+    assert(
+        dispatcher
+            .create_branch_single_element(
+                index,
+                hash,
+                peaks,
+                array![
+                    0x68D0,
+                    0x5e58373c626c427a3d2b417634424a93ca5efa8cde09ac9747aa03f3afecb8d,
+                    0x1234
+                ]
+                    .span(),
+                mmr_id,
+                mmr.last_pos,
+                new_mmr_id
+            )
+            .is_err(),
+        'invalid proof should fail'
+    );
 
     // Valid proof should succeed
-    dispatcher.create_branch_single_element(index, hash, peaks, proof, mmr_id, mmr.last_pos, new_mmr_id).unwrap();
+    dispatcher
+        .create_branch_single_element(index, hash, peaks, proof, mmr_id, mmr.last_pos, new_mmr_id)
+        .unwrap();
     let new_mmr = dispatcher.get_mmr(new_mmr_id).unwrap();
-    assert(new_mmr.root == 0x2f9bb49a56c6119deabb24612297842a5ec873bd67e71e7b87b94c8e1b95d7a, 'new mmr root mismatch');
+    assert(
+        new_mmr.root == 0x2f9bb49a56c6119deabb24612297842a5ec873bd67e71e7b87b94c8e1b95d7a,
+        'new mmr root mismatch'
+    );
     assert(new_mmr.last_pos == 1, 'new mmr last_pos mismatch');
 
     // New MMR that already exists should fail
-    assert(dispatcher.create_branch_single_element(index, hash, peaks, proof, mmr_id, mmr.last_pos, new_mmr_id).is_err(), 'mmr alrd exists should fail');
+    assert(
+        dispatcher
+            .create_branch_single_element(
+                index, hash, peaks, proof, mmr_id, mmr.last_pos, new_mmr_id
+            )
+            .is_err(),
+        'mmr alrd exists should fail'
+    );
 }
 
 #[test]
