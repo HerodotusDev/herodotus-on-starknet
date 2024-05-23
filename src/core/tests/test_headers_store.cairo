@@ -194,7 +194,7 @@ fn test_header_block_1() {
     let (dispatcher, contract_address) = helper_create_headers_store();
 
     start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
-    dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0);
+    dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id);
     stop_prank(CheatTarget::One(contract_address));
     assert(dispatcher.get_mmr_root(mmr_id) == mmr.root, 'Root not set');
 
