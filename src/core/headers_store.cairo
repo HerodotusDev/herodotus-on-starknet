@@ -548,6 +548,8 @@ mod HeadersStore {
         ) {
             assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
 
+            assert(self.mmr.read(new_mmr_id).root == 0, 'MMR ID already exists');
+
             let root = if mmr_id == 0 {
                 last_pos = 1;
                 MMR_INITIAL_ROOT
@@ -555,6 +557,7 @@ mod HeadersStore {
                 self.mmr_history.read((mmr_id, last_pos))
             };
 
+            assert(root != 0, 'MMR does not exist');
             let new_mmr = MMRTrait::new(root, last_pos);
 
             self.mmr.write(new_mmr_id, new_mmr);
