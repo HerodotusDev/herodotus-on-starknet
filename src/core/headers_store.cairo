@@ -138,6 +138,9 @@ trait IHeadersStore<TContractState> {
     // @param mmr_id The id of the MMR to clone
     // @param last_pos last_pos of the given MMR
     // @param new_mmr_id The id of the new MMR
+    // @dev Notice that to prevent overwriting existing MMRs, a check if the MMR with the new id
+    // already exists is performed. Because of that MMR root = 0 is reserved for non-existing MMRs,
+    // so 0 cannot be used as a valid mmr root anywhere.
     fn create_branch_from(
         ref self: TContractState, mmr_id: MmrId, last_pos: MmrSize, new_mmr_id: MmrId
     );

@@ -256,8 +256,7 @@ fn test_create_branch_from_message() {
 
     // Root equal to 0 is not allowed.
     assert(
-        dispatcher.create_branch_from_message(0, 1, 0, mmr_id_2).is_err(),
-        'Root = 0 should fail'
+        dispatcher.create_branch_from_message(0, 1, 0, mmr_id_2).is_err(), 'Root = 0 should fail'
     );
 
     // Creating MMR with the same ID should fail.
