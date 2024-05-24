@@ -300,8 +300,8 @@ mod HeadersStore {
             assert(mmr.root != 0, 'MMR does not exist');
             let poseidon_hash = hash_words64(*headers_rlp.at(0));
             let mut peaks = mmr_peaks;
-            let mut start_block = 0;
-            let mut end_block = 0;
+            let mut start_block: u256 = 0;
+            let mut end_block: u256 = 0;
 
             let mut decoded_rlp = RLPItem::Bytes((array![].span(), 0));
             let mut rlp_byte_len = 0;
