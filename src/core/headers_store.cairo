@@ -168,7 +168,9 @@ mod HeadersStore {
     #[storage]
     struct Storage {
         commitments_inbox: ContractAddress,
+        // MMR root = 0 means that MMR doesn't exist
         mmr: LegacyMap::<MmrId, MMR>,
+        // MMR root = 0 means that MMR doesn't exist
         mmr_history: LegacyMap::<(MmrId, MmrSize), felt252>,
         // block_number => parent blockhash
         received_blocks: LegacyMap::<u256, u256>,
@@ -434,6 +436,7 @@ mod HeadersStore {
             mmr_id: MmrId,
         ) -> bool {
             let mmr = self.mmr.read(mmr_id);
+            assert(mmr.root != 0, 'MMR does not exist');
 
             mmr
                 .verify_proof(index, poseidon_blockhash, peaks, proof)
@@ -451,8 +454,7 @@ mod HeadersStore {
             last_pos: MmrSize,
         ) -> bool {
             let root = self.mmr_history.read((mmr_id, last_pos));
-
-            assert(root != 0, 'MMR doesn\'t exist');
+            assert(root != 0, 'MMR does not exist');
 
             let mmr = MMRTrait::new(root, last_pos);
 
@@ -475,8 +477,7 @@ mod HeadersStore {
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
 
-            let existing_mmr = self.mmr.read(mmr_id);
-            assert(existing_mmr.root == 0 && existing_mmr.last_pos == 0, 'MMR ID already exists');
+            assert(self.mmr.read(mmr_id).root == 0, 'MMR ID already exists');
 
             let mmr = MMRTrait::new(root, last_pos);
             self.mmr.write(mmr_id, mmr);
@@ -504,8 +505,7 @@ mod HeadersStore {
             assert(mmr_id != 0, 'Invalid mmr id 0');
             assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
 
-            let existing_mmr = self.mmr.read(new_mmr_id);
-            assert(existing_mmr.root == 0 && existing_mmr.last_pos == 0, 'MMR ID already exists');
+            assert(self.mmr.read(new_mmr_id).root == 0, 'MMR ID already exists');
 
             assert(
                 HeadersStore::verify_historical_mmr_inclusion(
