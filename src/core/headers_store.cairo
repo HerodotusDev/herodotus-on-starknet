@@ -523,19 +523,19 @@ mod HeadersStore {
                 .append(initial_poseidon_blockhash, array![].span())
                 .expect('Failed to append to MMR');
 
-            let root = mmr.root;
-            let last_pos = mmr.last_pos;
+            let new_root = mmr.root;
+            let new_last_pos = mmr.last_pos;
 
             self.mmr.write(new_mmr_id, mmr);
-            self.mmr_history.write((new_mmr_id, last_pos), root);
+            self.mmr_history.write((new_mmr_id, new_last_pos), new_root);
 
             self
                 .emit(
                     Event::BranchCreatedFromElement(
                         BranchCreatedFromElement {
                             mmr_id: new_mmr_id,
-                            root,
-                            last_pos,
+                            root: new_root,
+                            last_pos: new_last_pos,
                             detached_from_mmr_id: mmr_id,
                             mmr_index: index
                         }
