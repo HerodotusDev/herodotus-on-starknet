@@ -111,7 +111,7 @@ trait IHeadersStore<TContractState> {
         root: felt252,
         last_pos: MmrSize,
         aggregator_id: usize,
-        mmr_id: MmrId
+        new_mmr_id: MmrId
     );
 
 
@@ -297,6 +297,7 @@ mod HeadersStore {
             mmr_proof: Option<Proof>,
         ) {
             let mut mmr = self.mmr.read(mmr_id);
+            assert(mmr.root != 0, 'MMR does not exist');
             let poseidon_hash = hash_words64(*headers_rlp.at(0));
             let mut peaks = mmr_peaks;
             let mut start_block = 0;
@@ -472,24 +473,24 @@ mod HeadersStore {
             root: felt252,
             last_pos: MmrSize,
             aggregator_id: usize,
-            mmr_id: MmrId
+            new_mmr_id: MmrId
         ) {
-            assert(mmr_id != 0, 'Cannot create mmr with id 0');
+            assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
             assert(root != 0, 'root cannot be 0');
 
             let caller = get_caller_address();
             assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
 
-            assert(self.mmr.read(mmr_id).root == 0, 'MMR ID already exists');
+            assert(self.mmr.read(new_mmr_id).root == 0, 'MMR ID already exists');
 
             let mmr = MMRTrait::new(root, last_pos);
-            self.mmr.write(mmr_id, mmr);
-            self.mmr_history.write((mmr_id, last_pos), root);
+            self.mmr.write(new_mmr_id, mmr);
+            self.mmr_history.write((new_mmr_id, last_pos), root);
 
             self
                 .emit(
                     Event::BranchCreatedFromL1(
-                        BranchCreatedFromL1 { mmr_id, root, last_pos, aggregator_id }
+                        BranchCreatedFromL1 { mmr_id: new_mmr_id, root, last_pos, aggregator_id }
                     )
                 );
         }
