@@ -442,9 +442,7 @@ mod HeadersStore {
             let mmr = self.mmr.read(mmr_id);
             assert(mmr.root != 0, 'MMR_NOT_FOUND');
 
-            mmr
-                .verify_proof(index, poseidon_blockhash, peaks, proof)
-                .expect('INVALID_MMR_PROOF')
+            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).expect('INVALID_MMR_PROOF')
         }
 
         // @inheritdoc IHeadersStore
@@ -462,9 +460,7 @@ mod HeadersStore {
 
             let mmr = MMRTrait::new(root, last_pos);
 
-            mmr
-                .verify_proof(index, poseidon_blockhash, peaks, proof)
-                .expect('INVALID_MMR_PROOF')
+            mmr.verify_proof(index, poseidon_blockhash, peaks, proof).expect('INVALID_MMR_PROOF')
         }
 
         // @inheritdoc IHeadersStore
@@ -519,9 +515,7 @@ mod HeadersStore {
             );
 
             let mut mmr: MMR = Default::default();
-            mmr
-                .append(initial_poseidon_blockhash, array![].span())
-                .expect('MMR_APPEND_FAILED');
+            mmr.append(initial_poseidon_blockhash, array![].span()).expect('MMR_APPEND_FAILED');
 
             let new_root = mmr.root;
             let new_last_pos = mmr.last_pos;
