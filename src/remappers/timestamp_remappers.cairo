@@ -110,7 +110,7 @@ mod TimestampRemappers {
             origin_elements: Span<OriginElement>
         ) {
             let len = origin_elements.len(); // Count of elements in the batch to append
-            assert(len != 0, 'Empty batch');
+            assert(len != 0, 'EMPTY_BATCH');
 
             // Fetch from storage
             let headers_store_addr = self.headers_store.read();
@@ -135,11 +135,11 @@ mod TimestampRemappers {
                     InternalFunctions::extract_header_block_number_and_timestamp(
                     *origin_element.header
                 );
-                assert(origin_element_block_number == expected_block, 'Unexpected block number');
+                assert(origin_element_block_number == expected_block, 'UNEXPECTED_BLOCK_NUMBER');
 
                 // 2. Verify that the header rlp is correct (i.e., matching with the leaf value)
                 let current_hash = hash_words64(*origin_element.header);
-                assert(current_hash == *origin_element.leaf_value.into(), 'Invalid header rlp');
+                assert(current_hash == *origin_element.leaf_value.into(), 'INVALID_HEADER_RLP');
 
                 // 3. Verify that the inclusion proof of the leaf is valid
                 let is_valid_proof = IHeadersStoreDispatcher {
@@ -153,7 +153,7 @@ mod TimestampRemappers {
                         *origin_element.tree_id,
                         *origin_element.last_pos
                     );
-                assert(is_valid_proof, 'Invalid proof');
+                assert(is_valid_proof, 'INVALID_MMR_PROOF');
 
                 // Add the block timestamp to the mapper MMR so we can binary search it later
                 let (_, p) = mapper_mmr
@@ -312,7 +312,7 @@ mod TimestampRemappers {
                         proof: *proof_element.proof,
                     )
                     .unwrap();
-                assert(is_valid_proof, 'Invalid proof');
+                assert(is_valid_proof, 'INVALID_MMR_PROOF');
 
                 if x >= mid_val {
                     left = mid + 1;
@@ -346,7 +346,7 @@ mod TimestampRemappers {
                         tree_closest_low_val.proof,
                     )
                     .unwrap();
-                assert(is_valid_low_proof, 'Invalid proof');
+                assert(is_valid_low_proof, 'INVALID_MMR_PROOF');
             }
 
             return Option::Some(closest_idx);

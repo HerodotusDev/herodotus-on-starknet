@@ -234,7 +234,7 @@ mod EVMFactsRegistry {
             mpt_proof: Span<Words64>
         ) -> u256 {
             let storage_hash = reverse_endianness_u256(
-                self.storage_hash.read((account, block)).expect('Storage hash not proven')
+                self.storage_hash.read((account, block)).expect('STORAGE_HASH_NOT_PROVEN')
             );
 
             // Split the slot into 4 64 bit words
@@ -257,19 +257,19 @@ mod EVMFactsRegistry {
             let key = reverse_endianness_u256(keccak_cairo_words64(words, 8));
 
             let mpt = MPTTrait::new(storage_hash);
-            let rlp_value = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
+            let rlp_value = mpt.verify(key, 64, mpt_proof).expect('MPT_VERIFICATION_FAILED');
 
             if rlp_value.is_empty() {
                 return 0;
             }
 
-            let (item, _) = rlp_decode(rlp_value).expect('Invalid RLP value');
+            let (item, _) = rlp_decode(rlp_value).expect('INVALID_RLP_VALUE');
 
             match item {
                 RLPItem::Bytes((value, value_len)) => value
                     .as_u256_be(value_len)
-                    .expect('Invalid value'),
-                RLPItem::List(_) => panic_with_felt252('Invalid header rlp')
+                    .expect('INVALID_RLP_VALUE'),
+                RLPItem::List(_) => panic_with_felt252('INVALID_HEADER_RLP')
             }
         }
 
@@ -360,20 +360,20 @@ mod EVMFactsRegistry {
                 .verify_historical_mmr_inclusion(
                     mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id, last_pos
                 );
-            assert(mmr_inclusion, 'MMR inclusion not proven');
+            assert(mmr_inclusion, 'INVALID_MMR_PROOF');
 
             let (decoded_rlp, _) = rlp_decode_list_lazy(block_header_rlp, array![3, 8].span())
-                .expect('Invalid header rlp');
+                .expect('INVALID_HEADER_RLP');
             let mut state_root: u256 = 0;
             let mut block_number: u256 = 0;
             match decoded_rlp {
-                RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                RLPItem::Bytes(_) => panic_with_felt252('INVALID_HEADER_RLP'),
                 RLPItem::List(l) => {
                     let (state_root_words, _) = *l.at(0);
                     state_root = state_root_words.as_u256_le().unwrap();
 
                     let (block_number_words, block_number_byte_len) = *l.at(1);
-                    assert(block_number_words.len() == 1, 'Invalid block number');
+                    assert(block_number_words.len() == 1, 'INVALID_BLOCK_NUMBER');
 
                     let block_number_le = *block_number_words.at(0);
                     block_number =
@@ -403,7 +403,7 @@ mod EVMFactsRegistry {
                 .span();
             let key = reverse_endianness_u256(keccak_cairo_words64(words, 4));
 
-            let rlp_account = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
+            let rlp_account = mpt.verify(key, 64, mpt_proof).expect('MPT_VERIFICATION_FAILED');
 
             let mut account_fields = ArrayTrait::new();
             if rlp_account.is_empty() {
@@ -418,9 +418,9 @@ mod EVMFactsRegistry {
                     i += 1;
                 };
             } else {
-                let (decoded_account, _) = rlp_decode(rlp_account).expect('Invalid account rlp');
+                let (decoded_account, _) = rlp_decode(rlp_account).expect('INVALID_ACCOUNT_RLP');
                 match decoded_account {
-                    RLPItem::Bytes(_) => panic_with_felt252('Invalid account rlp'),
+                    RLPItem::Bytes(_) => panic_with_felt252('INVALID_ACCOUNT_RLP'),
                     RLPItem::List(l) => {
                         let mut i: usize = 0;
                         loop {

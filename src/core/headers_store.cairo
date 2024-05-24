@@ -279,7 +279,7 @@ mod HeadersStore {
         // @inheritdoc IHeadersStore
         fn receive_hash(ref self: ContractState, parent_hash: u256, block_number: u256) {
             let caller = get_caller_address();
-            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
+            assert(caller == self.commitments_inbox.read(), 'ONLY_COMMITMENTS_INBOX');
 
             self.received_blocks.write(block_number, parent_hash);
 
@@ -297,7 +297,7 @@ mod HeadersStore {
             mmr_proof: Option<Proof>,
         ) {
             let mut mmr = self.mmr.read(mmr_id);
-            assert(mmr.root != 0, 'MMR does not exist');
+            assert(mmr.root != 0, 'SRC_MMR_NOT_FOUND');
             let poseidon_hash = hash_words64(*headers_rlp.at(0));
             let mut peaks = mmr_peaks;
             let mut start_block: u256 = 0;
@@ -307,27 +307,27 @@ mod HeadersStore {
             let mut rlp_byte_len = 0;
 
             if mmr_proof.is_some() {
-                assert(reference_block.is_none(), 'Cannot use proof AND ref block');
-                assert(headers_rlp.len() >= 2, 'Invalid headers rlp');
+                assert(reference_block.is_none(), 'PROOF_AND_REF_BLOCK_NOT_ALLOWED');
+                assert(headers_rlp.len() >= 2, 'INVALID_HEADER_RLP');
 
                 match rlp_decode_list_lazy(*headers_rlp.at(0), array![0, 8].span()) {
                     Result::Ok((d, d_l)) => {
                         decoded_rlp = d;
                         rlp_byte_len = d_l;
                     },
-                    Result::Err(_) => { panic_with_felt252('Invalid header rlp'); }
+                    Result::Err(_) => { panic_with_felt252('INVALID_HEADER_RLP'); }
                 };
 
                 let valid_proof = mmr
                     .verify_proof(mmr_index.unwrap(), poseidon_hash, mmr_peaks, mmr_proof.unwrap())
-                    .expect('MMR proof verification failed');
-                assert(valid_proof, 'Invalid proof');
+                    .expect('INVALID_MMR_PROOF');
+                assert(valid_proof, 'INVALID_MMR_PROOF');
 
                 match @decoded_rlp {
-                    RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                    RLPItem::Bytes(_) => panic_with_felt252('INVALID_HEADER_RLP'),
                     RLPItem::List(l) => {
                         let (start_block_words, start_block_byte_len) = *(*l).at(1);
-                        assert(start_block_words.len() == 1, 'Invalid start_block');
+                        assert(start_block_words.len() == 1, 'INVALID_START_BLOCK');
 
                         let start_block_le = *start_block_words.at(0);
                         start_block =
@@ -341,14 +341,14 @@ mod HeadersStore {
                     }
                 };
             } else {
-                assert(headers_rlp.len() >= 1, 'Invalid headers rlp');
+                assert(headers_rlp.len() >= 1, 'INVALID_HEADER_RLP');
 
                 match rlp_decode_list_lazy(*headers_rlp.at(0), array![0].span()) {
                     Result::Ok((d, d_l)) => {
                         decoded_rlp = d;
                         rlp_byte_len = d_l;
                     },
-                    Result::Err(_) => { panic_with_felt252('Invalid header rlp'); }
+                    Result::Err(_) => { panic_with_felt252('INVALID_HEADER_RLP'); }
                 };
 
                 let reference_block = reference_block.unwrap();
@@ -356,7 +356,7 @@ mod HeadersStore {
                 end_block = start_block - headers_rlp.len().into() + 1;
 
                 let initial_blockhash = self.received_blocks.read(reference_block);
-                assert(initial_blockhash != Zeroable::zero(), 'Block not received');
+                assert(initial_blockhash != Zeroable::zero(), 'BLOCK_NOT_RECEIVED');
 
                 let mut last_word_byte_len = rlp_byte_len % 8;
                 if last_word_byte_len == 0 {
@@ -365,9 +365,9 @@ mod HeadersStore {
                 let rlp_hash = InternalFunctions::keccak_hash_rlp(
                     *headers_rlp.at(0), last_word_byte_len, true
                 );
-                assert(rlp_hash == initial_blockhash, 'Invalid initial header rlp');
+                assert(rlp_hash == initial_blockhash, 'INVALID_INITIAL_HEADER_RLP');
 
-                let (_, p) = mmr.append(poseidon_hash, mmr_peaks).expect('Failed to append to MMR');
+                let (_, p) = mmr.append(poseidon_hash, mmr_peaks).expect('MMR_APPEND_FAILED');
                 peaks = p;
             }
 
@@ -378,10 +378,10 @@ mod HeadersStore {
                 }
 
                 let parent_hash: u256 = match decoded_rlp {
-                    RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                    RLPItem::Bytes(_) => panic_with_felt252('INVALID_HEADER_RLP'),
                     RLPItem::List(l) => {
                         let (words, words_byte_len) = *l.at(0);
-                        assert(words.len() == 4 && words_byte_len == 32, 'Invalid parent_hash rlp');
+                        assert(words.len() == 4 && words_byte_len == 32, 'INVALID_PARENT_HASH_RLP');
                         words.as_u256_le().unwrap()
                     },
                 };
@@ -393,7 +393,7 @@ mod HeadersStore {
                         decoded_rlp = d;
                         rlp_byte_len = d_l;
                     },
-                    Result::Err(_) => { panic_with_felt252('Invalid header rlp'); }
+                    Result::Err(_) => { panic_with_felt252('INVALID_HEADER_RLP'); }
                 };
 
                 let mut last_word_byte_len = rlp_byte_len % 8;
@@ -403,11 +403,11 @@ mod HeadersStore {
                 let current_hash = InternalFunctions::keccak_hash_rlp(
                     current_rlp, last_word_byte_len, false
                 );
-                assert(current_hash == parent_hash, 'Invalid header rlp');
+                assert(current_hash == parent_hash, 'INVALID_HEADER_RLP');
 
                 let poseidon_hash = hash_words64(current_rlp);
 
-                let (_, p) = mmr.append(poseidon_hash, peaks).expect('Failed to append to MMR');
+                let (_, p) = mmr.append(poseidon_hash, peaks).expect('MMR_APPEND_FAILED');
                 peaks = p;
 
                 i += 1;
@@ -440,11 +440,11 @@ mod HeadersStore {
             mmr_id: MmrId,
         ) -> bool {
             let mmr = self.mmr.read(mmr_id);
-            assert(mmr.root != 0, 'MMR does not exist');
+            assert(mmr.root != 0, 'MMR_NOT_FOUND');
 
             mmr
                 .verify_proof(index, poseidon_blockhash, peaks, proof)
-                .expect('MMR proof verification failed')
+                .expect('INVALID_MMR_PROOF')
         }
 
         // @inheritdoc IHeadersStore
@@ -458,13 +458,13 @@ mod HeadersStore {
             last_pos: MmrSize,
         ) -> bool {
             let root = self.mmr_history.read((mmr_id, last_pos));
-            assert(root != 0, 'MMR does not exist');
+            assert(root != 0, 'MMR_NOT_FOUND');
 
             let mmr = MMRTrait::new(root, last_pos);
 
             mmr
                 .verify_proof(index, poseidon_blockhash, peaks, proof)
-                .expect('MMR proof verification failed')
+                .expect('INVALID_MMR_PROOF')
         }
 
         // @inheritdoc IHeadersStore
@@ -475,13 +475,13 @@ mod HeadersStore {
             aggregator_id: usize,
             new_mmr_id: MmrId
         ) {
-            assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
-            assert(root != 0, 'root cannot be 0');
+            assert(new_mmr_id != 0, 'NEW_MMR_ID_0_NOT_ALLOWED');
+            assert(root != 0, 'ROOT_0_NOT_ALLOWED');
 
             let caller = get_caller_address();
-            assert(caller == self.commitments_inbox.read(), 'Only CommitmentsInbox');
+            assert(caller == self.commitments_inbox.read(), 'ONLY_COMMITMENTS_INBOX');
 
-            assert(self.mmr.read(new_mmr_id).root == 0, 'MMR ID already exists');
+            assert(self.mmr.read(new_mmr_id).root == 0, 'NEW_MMR_ALREADY_EXISTS');
 
             let mmr = MMRTrait::new(root, last_pos);
             self.mmr.write(new_mmr_id, mmr);
@@ -506,22 +506,22 @@ mod HeadersStore {
             last_pos: MmrSize,
             new_mmr_id: MmrId
         ) {
-            assert(mmr_id != 0, 'Invalid mmr id 0');
-            assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
+            assert(mmr_id != 0, 'SRC_MMR_ID_0_NOT_ALLOWED');
+            assert(new_mmr_id != 0, 'NEW_MMR_ID_0_NOT_ALLOWED');
 
-            assert(self.mmr.read(new_mmr_id).root == 0, 'MMR ID already exists');
+            assert(self.mmr.read(new_mmr_id).root == 0, 'NEW_MMR_ALREADY_EXISTS');
 
             assert(
                 HeadersStore::verify_historical_mmr_inclusion(
                     @self, index, initial_poseidon_blockhash, peaks, proof, mmr_id, last_pos
                 ),
-                'Invalid proof'
+                'INVALID_MMR_PROOF'
             );
 
             let mut mmr: MMR = Default::default();
             mmr
                 .append(initial_poseidon_blockhash, array![].span())
-                .expect('Failed to append to MMR');
+                .expect('MMR_APPEND_FAILED');
 
             let new_root = mmr.root;
             let new_last_pos = mmr.last_pos;
@@ -547,9 +547,9 @@ mod HeadersStore {
         fn create_branch_from(
             ref self: ContractState, mmr_id: MmrId, mut last_pos: MmrSize, new_mmr_id: MmrId
         ) {
-            assert(new_mmr_id != 0, 'Cannot create mmr with id 0');
+            assert(new_mmr_id != 0, 'NEW_MMR_ID_0_NOT_ALLOWED');
 
-            assert(self.mmr.read(new_mmr_id).root == 0, 'MMR ID already exists');
+            assert(self.mmr.read(new_mmr_id).root == 0, 'NEW_MMR_ALREADY_EXISTS');
 
             let root = if mmr_id == 0 {
                 last_pos = 1;
@@ -558,7 +558,7 @@ mod HeadersStore {
                 self.mmr_history.read((mmr_id, last_pos))
             };
 
-            assert(root != 0, 'MMR does not exist');
+            assert(root != 0, 'SRC_MMR_NOT_FOUND');
             let new_mmr = MMRTrait::new(root, last_pos);
 
             self.mmr.write(new_mmr_id, new_mmr);

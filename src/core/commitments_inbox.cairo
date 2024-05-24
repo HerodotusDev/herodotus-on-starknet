@@ -128,21 +128,21 @@ mod CommitmentsInbox {
         // @inheritdoc ICommitmentsInbox
         fn set_headers_store(ref self: ContractState, headers_store: ContractAddress) {
             let caller = get_caller_address();
-            assert(self.owner.read() == caller, 'Only owner');
+            assert(self.owner.read() == caller, 'ONLY_OWNER');
             self.headers_store.write(headers_store);
         }
 
         // @inheritdoc ICommitmentsInbox
         fn set_l1_message_sender(ref self: ContractState, l1_message_sender: EthAddress) {
             let caller = get_caller_address();
-            assert(self.owner.read() == caller, 'Only owner');
+            assert(self.owner.read() == caller, 'ONLY_OWNER');
             self.l1_message_sender.write(l1_message_sender);
         }
 
         // @inheritdoc ICommitmentsInbox
         fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
             let caller = get_caller_address();
-            assert(self.owner.read() == caller, 'Only owner');
+            assert(self.owner.read() == caller, 'ONLY_OWNER');
             self.owner.write(new_owner);
 
             if new_owner.is_zero() {
@@ -161,7 +161,7 @@ mod CommitmentsInbox {
         // @inheritdoc ICommitmentsInbox
         fn renounce_ownership(ref self: ContractState) {
             let caller = get_caller_address();
-            assert(self.owner.read() == caller, 'Only owner');
+            assert(self.owner.read() == caller, 'ONLY_OWNER');
             self.owner.write(Zeroable::zero());
 
             self.emit(Event::OwnershipRenounced(OwnershipRenounced { previous_owner: caller }));
@@ -172,7 +172,7 @@ mod CommitmentsInbox {
             ref self: ContractState, parent_hash: u256, block_number: u256
         ) {
             let caller = get_caller_address();
-            assert(self.owner.read() == caller, 'Only owner');
+            assert(self.owner.read() == caller, 'ONLY_OWNER');
 
             let contract_address = self.headers_store.read();
             IHeadersStoreDispatcher { contract_address }.receive_hash(parent_hash, block_number);
@@ -191,7 +191,7 @@ mod CommitmentsInbox {
     fn receive_commitment(
         ref self: ContractState, from_address: felt252, parent_hash: u256, block_number: u256
     ) {
-        assert(from_address == self.l1_message_sender.read().into(), 'Invalid sender');
+        assert(from_address == self.l1_message_sender.read().into(), 'ONLY_L1_MESSAGE_SENDER');
 
         let contract_address = self.headers_store.read();
         IHeadersStoreDispatcher { contract_address }.receive_hash(parent_hash, block_number);
@@ -215,7 +215,7 @@ mod CommitmentsInbox {
         aggregator_id: usize,
         mmr_id: MmrId
     ) {
-        assert(from_address == self.l1_message_sender.read().into(), 'Invalid sender');
+        assert(from_address == self.l1_message_sender.read().into(), 'ONLY_L!_MESSAGE_SENDER');
 
         let contract_address = self.headers_store.read();
         IHeadersStoreDispatcher { contract_address }
