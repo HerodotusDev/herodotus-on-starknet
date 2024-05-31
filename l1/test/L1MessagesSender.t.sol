@@ -14,7 +14,7 @@ contract L1MessagesSenderTest is Test {
 
         sender = new L1MessagesSender(
             IStarknetCore(0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057),
-            0x002e94a2344485429762F272c4Cf80F7378b30e1E9A34d662e0ba282135CC916,
+            0x02d939c63f39760E6bC9120B2FA5b0E14e16a8f8FF22E1D8f0F088b2808F6637,
             0x70C61dd17b7207B450Cb7DeDC92C1707A07a1213
         );
     }
