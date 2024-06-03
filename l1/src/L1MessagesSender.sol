@@ -56,7 +56,7 @@ contract L1MessagesSender is Ownable {
     }
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
-    function sendPoseidonMMRTreeToL2(uint256 aggregatorId, uint256 mmrId) external payable {
+    function sendPoseidonMMRTreeToL2(uint256 aggregatorId, uint128 mmrId) external payable {
         address existingAggregatorAddr = aggregatorsFactory.aggregatorsById(
             aggregatorId
         );
@@ -98,7 +98,7 @@ contract L1MessagesSender is Ownable {
         bytes32 poseidonMMRRoot,
         uint256 mmrSize,
         uint256 aggregatorId,
-        uint256 mmrId
+        uint128 mmrId
     ) internal {
         uint256[] memory message = new uint256[](4);
 
