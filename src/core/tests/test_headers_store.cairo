@@ -5,16 +5,17 @@ use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
     IHeadersStoreSafeDispatcher
 };
-use herodotus_eth_starknet::core::common::{MmrSize, MmrId};
+use herodotus_eth_starknet::core::common::MmrId;
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
-use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
+use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait, MmrSize, MmrElement};
 use debug::PrintTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
-const MMR_INITIAL_ELEMENT: felt252 =
+const MMR_INITIAL_ELEMENT: MmrElement =
     0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
-const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
+const MMR_INITIAL_ROOT: MmrElement =
+    0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
 fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
     let contract = declare("HeadersStore").unwrap();
@@ -282,7 +283,7 @@ fn test_create_branch_from_message() {
     );
 }
 
-fn helper_create_mmr_with_items(mut items: Span<felt252>) -> MMR {
+fn helper_create_mmr_with_items(mut items: Span<MmrElement>) -> MMR {
     let mut mmr: MMR = Default::default();
     let mut peaks = array![].span();
     loop {

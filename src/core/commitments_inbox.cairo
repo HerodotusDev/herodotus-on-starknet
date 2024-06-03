@@ -50,7 +50,8 @@ mod CommitmentsInbox {
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
-    use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
+    use herodotus_eth_starknet::core::common::{MmrId, AggregatorId};
+    use cairo_lib::data_structures::mmr::mmr::{MmrSize, MmrElement};
 
     #[storage]
     struct Storage {
@@ -87,9 +88,9 @@ mod CommitmentsInbox {
 
     #[derive(Drop, starknet::Event)]
     struct MMRReceived {
-        root: felt252,
+        root: MmrElement,
         last_pos: MmrSize,
-        aggregator_id: u256
+        aggregator_id: AggregatorId
     }
 
     #[constructor]
@@ -210,9 +211,9 @@ mod CommitmentsInbox {
     fn receive_mmr(
         ref self: ContractState,
         from_address: felt252,
-        root: felt252,
+        root: MmrElement,
         last_pos: MmrSize,
-        aggregator_id: u256,
+        aggregator_id: AggregatorId,
         mmr_id: MmrId
     ) {
         assert(from_address == self.l1_message_sender.read().into(), 'ONLY_L1_MESSAGE_SENDER');

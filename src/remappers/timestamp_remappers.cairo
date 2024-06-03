@@ -6,14 +6,14 @@
 
 #[starknet::contract]
 mod TimestampRemappers {
-    use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
+    use herodotus_eth_starknet::core::common::MmrId;
     use herodotus_eth_starknet::remappers::interface::{
         ITimestampRemappers, Headers, OriginElement, Proof, Peaks, Words64, ProofElement,
         BinarySearchTree, MapperId
     };
     use starknet::ContractAddress;
     use cairo_lib::hashing::poseidon::{PoseidonHasher, hash_words64};
-    use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
+    use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait, MmrSize, MmrElement};
     use cairo_lib::data_structures::mmr::utils::{leaf_index_to_mmr_index};
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode_list_lazy};
     use cairo_lib::utils::types::words64::{reverse_endianness_u64, bytes_used_u64};
@@ -43,7 +43,7 @@ mod TimestampRemappers {
         mapper_id: MapperId,
         start_block: u256,
         end_block: u256,
-        mmr_root: felt252,
+        mmr_root: MmrElement,
         mmr_size: MmrSize
     }
 
@@ -67,7 +67,7 @@ mod TimestampRemappers {
         headers_store: ContractAddress,
         mappers: LegacyMap::<MapperId, Mapper>,
         mappers_mmrs: LegacyMap::<MapperId, MMR>,
-        mappers_mmrs_history: LegacyMap::<(MapperId, MmrSize), felt252>,
+        mappers_mmrs_history: LegacyMap::<(MapperId, MmrSize), MmrElement>,
     }
 
     #[constructor]

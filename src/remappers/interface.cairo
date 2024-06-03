@@ -4,10 +4,11 @@
 // Interface types
 //
 
+use cairo_lib::data_structures::mmr::mmr::{MmrSize, MmrElement};
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::utils::types::words64::Words64;
-use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
+use herodotus_eth_starknet::core::common::MmrId;
 
 type Headers = Span<Words64>;
 type MapperId = u128;
@@ -17,7 +18,7 @@ struct OriginElement {
     tree_id: MmrId,
     last_pos: MmrSize,
     leaf_idx: MmrSize,
-    leaf_value: felt252,
+    leaf_value: MmrElement,
     inclusion_proof: Proof,
     peaks: Peaks,
     header: Words64

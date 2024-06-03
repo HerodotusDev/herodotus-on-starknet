@@ -6,11 +6,10 @@ use herodotus_eth_starknet::core::headers_store::{
 use herodotus_eth_starknet::core::evm_facts_registry::{
     IEVMFactsRegistryDispatcherTrait, IEVMFactsRegistryDispatcher, AccountField
 };
-use herodotus_eth_starknet::core::common::MmrSize;
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::hashing::poseidon::{hash_words64, PoseidonHasher};
-use cairo_lib::data_structures::mmr::{proof::Proof, peaks::Peaks};
+use cairo_lib::data_structures::mmr::{proof::Proof, peaks::Peaks, mmr::MmrSize};
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const TEST_MMR_ROOT: felt252 = 0x37a31db9c80c54ec632f04f7984155dc43591a3f8c891adfbf34e75331e0eec;

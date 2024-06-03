@@ -1,8 +1,9 @@
 use starknet::ContractAddress;
+use cairo_lib::data_structures::mmr::mmr::MmrSize;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::utils::types::words64::Words64;
-use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
+use herodotus_eth_starknet::core::common::MmrId;
 
 #[derive(Drop, Serde)]
 enum AccountField {
@@ -115,6 +116,7 @@ trait IEVMFactsRegistry<TContractState> {
 mod EVMFactsRegistry {
     use starknet::ContractAddress;
     use super::AccountField;
+    use cairo_lib::data_structures::mmr::mmr::MmrSize;
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::hashing::poseidon::hash_words64;
@@ -123,7 +125,7 @@ mod EVMFactsRegistry {
     use cairo_lib::utils::types::words64::{
         Words64, Words64Trait, reverse_endianness_u64, bytes_used_u64
     };
-    use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
+    use herodotus_eth_starknet::core::common::MmrId;
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };

@@ -1,2 +1,2 @@
 type MmrId = u128;
-type MmrSize = u128;
+type AggregatorId = u256;
