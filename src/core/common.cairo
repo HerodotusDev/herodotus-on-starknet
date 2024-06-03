@@ -1,2 +1,2 @@
 type MmrId = u128;
-type MmrSize = usize;
+type MmrSize = u128;
