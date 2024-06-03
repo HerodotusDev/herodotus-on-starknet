@@ -82,7 +82,9 @@ mod TimestampRemappers {
     #[abi(embed_v0)]
     impl TimestampRemappers of ITimestampRemappers<ContractState> {
         // Creates a new mapper and returns its ID.
-        fn create_mapper(ref self: ContractState, start_block: u256, mapper_id: MapperId) -> MapperId {
+        fn create_mapper(
+            ref self: ContractState, start_block: u256, mapper_id: MapperId
+        ) -> MapperId {
             let mmr: MMR = Default::default();
 
             assert(start_block != 0, 'START_BLOCK_0_NOT_ALLOWED');
