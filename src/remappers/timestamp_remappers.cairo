@@ -66,7 +66,6 @@ mod TimestampRemappers {
     struct Storage {
         headers_store: ContractAddress,
         mappers: LegacyMap::<MapperId, Mapper>,
-        mappers_count: MapperId,
         mappers_mmrs: LegacyMap::<MapperId, MMR>,
         mappers_mmrs_history: LegacyMap::<(MapperId, MmrSize), felt252>,
     }
@@ -74,7 +73,6 @@ mod TimestampRemappers {
     #[constructor]
     fn constructor(ref self: ContractState, headers_store: ContractAddress) {
         self.headers_store.write(headers_store);
-        self.mappers_count.write(0);
     }
 
     //
@@ -84,18 +82,17 @@ mod TimestampRemappers {
     #[abi(embed_v0)]
     impl TimestampRemappers of ITimestampRemappers<ContractState> {
         // Creates a new mapper and returns its ID.
-        fn create_mapper(ref self: ContractState, start_block: u256) -> MapperId {
+        fn create_mapper(ref self: ContractState, start_block: u256, mapper_id: MapperId) -> MapperId {
             let mmr: MMR = Default::default();
 
-            let mapper_id = self.mappers_count.read();
+            assert(start_block != 0, 'START_BLOCK_0_NOT_ALLOWED');
+            assert(self.mappers.read(mapper_id).start_block == 0, 'MAPPER_ID_ALREADY_EXISTS');
 
             self.mappers_mmrs_history.write((mapper_id, 0), mmr.root);
             self.mappers_mmrs.write(mapper_id, mmr);
 
             let mapper = Mapper { start_block, elements_count: 0, last_timestamp: 0 };
             self.mappers.write(mapper_id, mapper);
-
-            self.mappers_count.write(mapper_id + 1);
 
             self.emit(Event::MapperCreated(MapperCreated { mapper_id, start_block }));
 
@@ -115,6 +112,7 @@ mod TimestampRemappers {
             // Fetch from storage
             let headers_store_addr = self.headers_store.read();
             let mut mapper = self.mappers.read(mapper_id);
+            assert(mapper.start_block != 0, 'MAPPER_DOES_NOT_EXIST')
             let mut mapper_mmr = self.mappers_mmrs.read(mapper_id);
 
             // Determine the expected block number of the first element in the batch

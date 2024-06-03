@@ -10,7 +10,7 @@ use cairo_lib::utils::types::words64::Words64;
 use herodotus_eth_starknet::core::common::{MmrId, MmrSize};
 
 type Headers = Span<Words64>;
-type MapperId = usize;
+type MapperId = u128;
 
 #[derive(Drop, Serde)]
 struct OriginElement {
@@ -46,7 +46,7 @@ struct BinarySearchTree {
 #[starknet::interface]
 trait ITimestampRemappers<TContractState> {
     // Creates a new mapper and returns its ID.
-    fn create_mapper(ref self: TContractState, start_block: u256) -> MapperId;
+    fn create_mapper(ref self: TContractState, start_block: u256, mapper_id: MapperId) -> MapperId;
 
     // Adds elements from other trusted data sources to the given mapper.
     fn reindex_batch(
