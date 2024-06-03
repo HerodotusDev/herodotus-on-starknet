@@ -89,7 +89,7 @@ mod CommitmentsInbox {
     struct MMRReceived {
         root: felt252,
         last_pos: MmrSize,
-        aggregator_id: usize
+        aggregator_id: u256
     }
 
     #[constructor]
@@ -212,7 +212,7 @@ mod CommitmentsInbox {
         from_address: felt252,
         root: felt252,
         last_pos: MmrSize,
-        aggregator_id: usize,
+        aggregator_id: u256,
         mmr_id: MmrId
     ) {
         assert(from_address == self.l1_message_sender.read().into(), 'ONLY_L1_MESSAGE_SENDER');

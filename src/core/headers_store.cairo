@@ -110,7 +110,7 @@ trait IHeadersStore<TContractState> {
         ref self: TContractState,
         root: felt252,
         last_pos: MmrSize,
-        aggregator_id: usize,
+        aggregator_id: u256,
         new_mmr_id: MmrId
     );
 
@@ -227,7 +227,7 @@ mod HeadersStore {
         mmr_id: MmrId,
         root: felt252,
         last_pos: MmrSize,
-        aggregator_id: usize
+        aggregator_id: u256
     }
 
     #[derive(Drop, starknet::Event)]
@@ -468,7 +468,7 @@ mod HeadersStore {
             ref self: ContractState,
             root: felt252,
             last_pos: MmrSize,
-            aggregator_id: usize,
+            aggregator_id: u256,
             new_mmr_id: MmrId
         ) {
             assert(new_mmr_id != 0, 'NEW_MMR_ID_0_NOT_ALLOWED');
