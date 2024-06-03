@@ -215,7 +215,7 @@ mod CommitmentsInbox {
         aggregator_id: usize,
         mmr_id: MmrId
     ) {
-        assert(from_address == self.l1_message_sender.read().into(), 'ONLY_L!_MESSAGE_SENDER');
+        assert(from_address == self.l1_message_sender.read().into(), 'ONLY_L1_MESSAGE_SENDER');
 
         let contract_address = self.headers_store.read();
         IHeadersStoreDispatcher { contract_address }
