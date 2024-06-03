@@ -112,7 +112,7 @@ mod TimestampRemappers {
             // Fetch from storage
             let headers_store_addr = self.headers_store.read();
             let mut mapper = self.mappers.read(mapper_id);
-            assert(mapper.start_block != 0, 'MAPPER_DOES_NOT_EXIST')
+            assert(mapper.start_block != 0, 'MAPPER_DOES_NOT_EXIST');
             let mut mapper_mmr = self.mappers_mmrs.read(mapper_id);
 
             // Determine the expected block number of the first element in the batch

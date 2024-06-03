@@ -362,7 +362,7 @@ fn test_remappers() {
         contract_address: timestamp_remappers
     };
     let start_block: u256 = 9260751; // Mainnet block
-    let mapper_id = remapper_dispatcher.create_mapper(start_block);
+    let mapper_id = remapper_dispatcher.create_mapper(start_block, 0);
     assert(mapper_id == 0, 'Invalid mapper id');
 
     // An MMR containing { 1, 2, 4, 5, 8 } as string with Starknet Poseidon as a hasher.
