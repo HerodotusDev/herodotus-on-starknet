@@ -35,7 +35,7 @@ contract L1MessagesSenderTest is Test {
         // This aggregator id must exist in the factory
         uint256 aggregatorId = 1;
 
-        uint128 mmrId = 4;
+        uint256 mmrId = 4;
 
         // Value must be greater than 0
         sender.sendPoseidonMMRTreeToL2{value: 1}(aggregatorId, mmrId);

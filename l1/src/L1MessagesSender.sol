@@ -56,7 +56,7 @@ contract L1MessagesSender is Ownable {
     }
 
     /// @param aggregatorId The id of a tree previously created by the aggregators factory
-    function sendPoseidonMMRTreeToL2(uint256 aggregatorId, uint128 mmrId) external payable {
+    function sendPoseidonMMRTreeToL2(uint256 aggregatorId, uint256 mmrId) external payable {
         address existingAggregatorAddr = aggregatorsFactory.aggregatorsById(
             aggregatorId
         );
@@ -98,18 +98,19 @@ contract L1MessagesSender is Ownable {
         bytes32 poseidonMMRRoot,
         uint128 mmrSize,
         uint256 aggregatorId,
-        uint128 mmrId
+        uint256 mmrId
     ) internal {
-        uint128 aggregatorId_low = uint128(aggregatorId);
-        uint128 aggregatorId_high = uint128(aggregatorId >> 128);
+        (uint256 aggregatorIdLow, uint256 aggregatorIdHigh) = aggregatorId.split128();
+        (uint256 mmrIdLow, uint256 mmrIdHigh) = mmrId.split128();
 
-        uint256[] memory message = new uint256[](5);
+        uint256[] memory message = new uint256[](6);
         
         message[0] = uint256(poseidonMMRRoot);
         message[1] = mmrSize;
-        message[2] = aggregatorId_low;
-        message[3] = aggregatorId_high;
-        message[4] = mmrId;
+        message[2] = aggregatorIdLow;
+        message[3] = aggregatorIdHigh;
+        message[4] = mmrIdLow;
+        message[5] = mmrIdHigh;
 
         // Pass along msg.value
         starknetCore.sendMessageToL2{value: msg.value}(
