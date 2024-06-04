@@ -1,9 +1,9 @@
 [[call]]
 call_type = "deploy"
-class_hash = "0x636debf6067e2fd953c4a2ceb6ca3b93d97474a725816a3ea438d3f79eb7512"
+class_hash = "0x3e9609ed86823420a71bf49659692e3dced77187db80c44c9835c1dd6971292"
 inputs = [
     "0x1",
-    "0xdF32BADD47BEef951a77Da5dbfA14E2D65dF3A20",
+    "0x30DdE9bC96D800fF70383c74a95141E156Db1DF0",
     "0x0",
     "0x5a6c0f84179d695f0b598cc5d0be50421c247da95cfe63e4cd66fc27f32dfe6",
 ]
@@ -12,14 +12,14 @@ unique = false
 
 [[call]]
 call_type = "deploy"
-class_hash = "0x5415fef5becee8d69aeaeaed8b12d2e0505c9f045b679ef2b40163cc54dae02"
+class_hash = "0x43b8bbd6d131703af8b288225caa29dc4d0cdd807b9be1ddcf9483d836a5684"
 inputs = ["commitments_inbox"]
 id = "headers_store"
 unique = false
 
 [[call]]
 call_type = "deploy"
-class_hash = "0x59bc294565250247b8d77921c84c96a312748496245fb11b3f1c37be6920a21"
+class_hash = "0x476dd358f684b29ef00299a8bcefa3cbde0f46d4df8716f2fde06555ece0c7b"
 inputs = ["headers_store"]
 id = "evm_facts_registry"
 unique = false
@@ -32,7 +32,7 @@ inputs = ["headers_store"]
 
 [[call]]
 call_type = "deploy"
-class_hash = "0x6b83039caf2042ee17d07853c0c24a021f4301f6c49a778fe7f690b45b2fc8f"
+class_hash = "0x59547c81438fa787d10e30223990192ea29da848db9996491c805cd28d8b097"
 inputs = ["headers_store"]
 id = "timestamp_remappers"
 unique = false
