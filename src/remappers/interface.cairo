@@ -11,7 +11,7 @@ use cairo_lib::utils::types::words64::Words64;
 use herodotus_eth_starknet::core::common::MmrId;
 
 type Headers = Span<Words64>;
-type MapperId = u128;
+type MapperId = u256;
 
 #[derive(Drop, Serde)]
 struct OriginElement {

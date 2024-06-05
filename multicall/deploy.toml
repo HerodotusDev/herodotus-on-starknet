@@ -32,7 +32,7 @@ inputs = ["headers_store"]
 
 [[call]]
 call_type = "deploy"
-class_hash = "0x59547c81438fa787d10e30223990192ea29da848db9996491c805cd28d8b097"
+class_hash = "0x73305243f4fa52b5a26b75bcb2ace081e28eb365239b58723ae643f63875078"
 inputs = ["headers_store"]
 id = "timestamp_remappers"
 unique = false
