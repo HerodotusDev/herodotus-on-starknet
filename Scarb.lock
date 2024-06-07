@@ -4,7 +4,7 @@ version = 1
 [[package]]
 name = "cairo_lib"
 version = "0.2.0"
-source = "git+https://github.com/HerodotusDev/cairo-lib.git?branch=update-cairo#bc453f981c6ce2753543474a2492ecac03c36ba4"
+source = "git+https://github.com/HerodotusDev/cairo-lib.git?branch=update-cairo#0db686d55a4f52835c2127539953178bd01e19f3"
 
 [[package]]
 name = "herodotus_eth_starknet"
