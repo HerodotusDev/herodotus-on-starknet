@@ -1,5 +1,5 @@
 [[call]]
 call_type = "invoke"
-contract_address = "0x0175a93a8663ad935bc0362ffdeb975a4a93a5eb6370ad027a0c48717dae925b"
+contract_address = "0x0763c1a0ec1d64afe2d8d0a2c0cab6fd494dcb26d08ef1020b27aa5695761e21"
 function = "set_l1_message_sender"
-inputs = ["0x30DdE9bC96D800fF70383c74a95141E156Db1DF0"]
+inputs = ["0x423F7744017600727cE4789933E4648068835E28"]
