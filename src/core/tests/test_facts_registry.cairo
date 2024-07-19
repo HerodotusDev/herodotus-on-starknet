@@ -1,4 +1,4 @@
-use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
+use snforge_std::{declare, ContractClassTrait, start_prank, stop_prank, CheatTarget};
 
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
@@ -9,38 +9,32 @@ use herodotus_eth_starknet::core::evm_facts_registry::{
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
 use cairo_lib::hashing::poseidon::{hash_words64, PoseidonHasher};
-use cairo_lib::data_structures::mmr::{proof::Proof, peaks::Peaks};
+use cairo_lib::data_structures::mmr::{proof::Proof, peaks::Peaks, mmr::MmrSize};
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
 const TEST_MMR_ROOT: felt252 = 0x37a31db9c80c54ec632f04f7984155dc43591a3f8c891adfbf34e75331e0eec;
-const TEST_MMR_SIZE: usize = 8;
+const TEST_MMR_SIZE: MmrSize = 8;
 const TEST_ACCOUNT: felt252 = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 const TEST_BLOCK: u256 = 17000000;
 
 fn helper_create_facts_registry(
-    mmr_root: felt252, mmr_size: usize
+    mmr_root: felt252, mmr_size: MmrSize
 ) -> (IEVMFactsRegistryDispatcher, ContractAddress) {
-    let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
-    };
-    let contract_address = deploy(prepared).unwrap();
+    let contract = declare("HeadersStore").unwrap();
+    let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     let mut headers_store = IHeadersStoreDispatcher { contract_address };
-    start_prank(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
-    headers_store.create_branch_from_message(mmr_root, mmr_size, 0);
-    stop_prank(contract_address);
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    headers_store.create_branch_from_message(mmr_root, mmr_size, 0, 1);
+    stop_prank(CheatTarget::One(contract_address));
 
-    let class_hash = declare('EVMFactsRegistry');
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @array![contract_address.into()]
-    };
-    let contract_address = deploy(prepared).unwrap();
+    let contract = declare("EVMFactsRegistry").unwrap();
+    let (contract_address, _) = contract.deploy(@array![contract_address.into()]).unwrap();
     (IEVMFactsRegistryDispatcher { contract_address }, contract_address)
 }
 
 #[test]
 fn test_prove_account() {
-    let (dispatcher, contract_address) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
+    let (dispatcher, _) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
 
     // Testing block 17000000
     let block_header_rlp = *helper_get_headers_rlp().at(0);
@@ -85,8 +79,9 @@ fn test_prove_account() {
 
 #[test]
 fn test_prove_storage() {
-    // Expected key based on proof: 0x290decd | 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
-    let (dispatcher, contract_address) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
+    // Expected key based on proof: 0x290decd |
+    // 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
+    let (dispatcher, _) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
 
     // Testing block 17000000
     let block_header_rlp = *helper_get_headers_rlp().at(0);
@@ -120,8 +115,9 @@ fn test_prove_storage() {
 
 #[test]
 fn test_prove_storage_empty() {
-    // Expected key based on proof: 0x290decd | 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
-    let (dispatcher, contract_address) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
+    // Expected key based on proof: 0x290decd |
+    // 39548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563
+    let (dispatcher, _) = helper_create_facts_registry(TEST_MMR_ROOT, TEST_MMR_SIZE);
 
     // Testing block 17000000
     let block_header_rlp = *helper_get_headers_rlp().at(0);

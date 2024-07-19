@@ -1,33 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0
 
-use snforge_std::{declare, PreparedContract, deploy, start_prank, stop_prank};
+use snforge_std::{declare, ContractClassTrait, start_prank, stop_prank, CheatTarget};
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
     IHeadersStoreSafeDispatcher
 };
+use herodotus_eth_starknet::core::common::MmrId;
 use starknet::ContractAddress;
 use cairo_lib::utils::types::words64::Words64;
+use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait, MmrSize, MmrElement};
+use debug::PrintTrait;
 
 const COMMITMENTS_INBOX_ADDRESS: felt252 = 0x123;
-const MMR_INITIAL_ELEMENT: felt252 =
+const MMR_INITIAL_ELEMENT: MmrElement =
     0x02241b3b7f1c4b9cf63e670785891de91f7237b1388f6635c1898ae397ad32dd;
-const MMR_INITIAL_ROOT: felt252 = 0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
+const MMR_INITIAL_ROOT: MmrElement =
+    0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
 fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
-    let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
-    };
-    let contract_address = deploy(prepared).unwrap();
+    let contract = declare("HeadersStore").unwrap();
+    let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreDispatcher { contract_address }, contract_address)
 }
 
 fn helper_create_safe_headers_store() -> (IHeadersStoreSafeDispatcher, ContractAddress) {
-    let class_hash = declare('HeadersStore');
-    let prepared = PreparedContract {
-        class_hash: class_hash, constructor_calldata: @array![COMMITMENTS_INBOX_ADDRESS]
-    };
-    let contract_address = deploy(prepared).unwrap();
+    let contract = declare("HeadersStore").unwrap();
+    let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreSafeDispatcher { contract_address }, contract_address)
 }
 
@@ -37,12 +35,183 @@ fn helper_receive_hash(
     dispatcher: IHeadersStoreDispatcher,
     contract_address: ContractAddress
 ) {
-    start_prank(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.receive_hash(blockhash, block_number);
-    stop_prank(contract_address);
+    stop_prank(CheatTarget::One(contract_address));
 }
 
 #[test]
+fn test_header_block_1() {
+    let headers_rlp = array![
+        array![
+            0x64dd60e4a0fc01f9,
+            0x4c54f284013c491f,
+            0xcf69fedcb4e3cf9b,
+            0x0d1b29ed8a4f05a8,
+            0x4dcc1da05e02a0dd,
+            0xb585ab7a5dc7dee8,
+            0x4512d31ad4ccb667,
+            0x42a1f013748a941b,
+            0x0042944793d440fd,
+            0x0000000000000000,
+            0x0000000000000000,
+            0xedfc36fc32a01100,
+            0x9319629f76c5000d,
+            0x2a57fdbe486254cd,
+            0x3dc181f13929b4f5,
+            0xb5350f77a0c70890,
+            0x58aff8b90f301ca1,
+            0x2a7c97ac1a555144,
+            0x27ab16def38f5914,
+            0x82468fa0ce42063b,
+            0x7bf6ce1c3a5b5782,
+            0xb7e9521cac238426,
+            0x697018cba3bda32c,
+            0x0001b93b44a845dd,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x8280c3c901840280,
+            0x80b0dbd6648429b7,
+            0x5c67599946e432a0,
+            0xa80937f4a9d1d3ee,
+            0xf84428719d685d05,
+            0x289ef4c9db34aa20,
+            0x000000000000886c,
+            0x555e4239840000
+        ]
+            .span(),
+        array![
+            0xffe62d10a0fc01f9,
+            0x48b5b8c90c4801b0,
+            0xe46af4d44cc305fd,
+            0xea90db93937591aa,
+            0x4dcc1da07d880904,
+            0xb585ab7a5dc7dee8,
+            0x4512d31ad4ccb667,
+            0x42a1f013748a941b,
+            0x0042944793d440fd,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x8350600f4ca01100,
+            0x56f3150a8a78d66f,
+            0x73d2b84cef2d199b,
+            0x42bed64a1ea39943,
+            0xc494f04da0dcb31e,
+            0xb948bfaaea99f413,
+            0x5c0bb3233cd8d16f,
+            0x2d6bc9f9efa595ec,
+            0x5d713ca075e82e5d,
+            0xde6fd4cc97256dd9,
+            0x5b0a3eb1e4a56d04,
+            0xc9e63e0cf62f0a7d,
+            0x0001b9ea0096ee2f,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x8280c3c901840180,
+            0x80aedbd66484f5f9,
+            0x5c67599946e432a0,
+            0xa80937f4a9d1d3ee,
+            0xf84428719d685d05,
+            0x289ef4c9db34aa20,
+            0x000000000000886c,
+            0x009d693a840000
+        ]
+            .span()
+    ]
+        .span();
+
+    let mut mmr = MMRTrait::new(
+        root: 0x78ece8884698aadc91f067cf2d0d54a955e458ab6cd2ebc18fe815a3aafb43, last_pos: 263
+    );
+    let mmr_peaks = array![
+        0x735d9916958a088b58e320e015ba24e93ad034159fe0551c31cbb69d5be0a05,
+        0x0e4829e42415b71f12d9d936cb22bc50cd97f4a9737852454deeca9b49c59a2,
+        0x38aaa5bd29a41a3818b28eff66365d8ea7dd20380456f27b832f1091503a961
+    ]
+        .span();
+    let mmr_proof = array![].span();
+    let mmr_id = 1;
+
+    let (dispatcher, contract_address) = helper_create_headers_store();
+
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id);
+    stop_prank(CheatTarget::One(contract_address));
+    assert(dispatcher.get_mmr_root(mmr_id) == mmr.root, 'Root not set');
+
+    dispatcher
+        .process_batch(
+            headers_rlp,
+            mmr_peaks,
+            mmr_id,
+            Option::None,
+            Option::Some(mmr.last_pos),
+            Option::Some(mmr_proof)
+        );
+}
+
+#[test]
+#[feature("safe_dispatcher")]
 fn test_receive_hash_wrong_address() {
     let (safe_dispatcher, _) = helper_create_safe_headers_store();
 
@@ -65,10 +234,168 @@ fn test_receive_hash() {
 }
 
 #[test]
-fn test_initial_tree() {
-    let (dispatcher, contract_address) = helper_create_headers_store();
+fn test_create_branch_from_message() {
+    let (dispatcher, contract_address) = helper_create_safe_headers_store();
 
-    let mmr_id = 0;
+    let mmr_id_1 = 0x5a93;
+    let mmr_id_2 = 0xcd82;
+    let root = 0x123123123;
+    let size = 10;
+
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+
+    // Create MMR.
+    assert(dispatcher.get_mmr_size(mmr_id_1).unwrap() == 0, 'Initial mmr size should be 0');
+    dispatcher.create_branch_from_message(root, size, 0, mmr_id_1).unwrap();
+    assert(dispatcher.get_mmr_size(mmr_id_1).unwrap() == size, 'Mmr size mismatch');
+    assert(dispatcher.get_mmr_root(mmr_id_1).unwrap() == root, 'Mmr root mismatch');
+
+    // Creating MMR with ID 0 is not allowed.
+    assert(
+        dispatcher.create_branch_from_message(root, size, 0, 0).is_err(), 'Mmr ID 0 should fail'
+    );
+
+    // Root equal to 0 is not allowed.
+    assert(
+        dispatcher.create_branch_from_message(0, 1, 0, mmr_id_2).is_err(), 'Root = 0 should fail'
+    );
+
+    // Creating MMR with the same ID should fail.
+    assert(
+        dispatcher.create_branch_from_message(root, size, 0, mmr_id_1).is_err(),
+        'MMR already exists should fail'
+    );
+
+    // Create another MMR.
+    assert(dispatcher.get_mmr_size(mmr_id_2).unwrap() == 0, 'Initial mmr size should be 0');
+    dispatcher.create_branch_from_message(root, size, 0, mmr_id_2).unwrap();
+    assert(dispatcher.get_mmr_size(mmr_id_2).unwrap() == size, 'Mmr size mismatch');
+    assert(dispatcher.get_mmr_root(mmr_id_2).unwrap() == root, 'Mmr root mismatch');
+
+    stop_prank(CheatTarget::One(contract_address));
+
+    let mmr_id_3 = 0x8124a;
+
+    // Sender other than commitments inbox should fail.
+    assert(
+        dispatcher.create_branch_from_message(root, size, 0, mmr_id_3).is_err(),
+        'only commitments inbox'
+    );
+}
+
+fn helper_create_mmr_with_items(mut items: Span<MmrElement>) -> MMR {
+    let mut mmr: MMR = Default::default();
+    let mut peaks = array![].span();
+    loop {
+        match items.pop_front() {
+            Option::Some(item) => {
+                let (_root, new_peaks) = mmr.append(*item, peaks).unwrap();
+                peaks = new_peaks;
+            },
+            Option::None => { break; }
+        }
+    };
+    mmr
+}
+
+#[test]
+fn test_create_branch_single_element() {
+    let (dispatcher, contract_address) = helper_create_safe_headers_store();
+
+    // Setup mmr with 7 elements
+    let mmr_id = 1;
+    let items = array![MMR_INITIAL_ELEMENT, 0x4AF3, 0xB1C2, 0x68D0, 0xE923, 0x0F4B, 0x37A8];
+    let mmr = helper_create_mmr_with_items(items.span());
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id).unwrap();
+    stop_prank(CheatTarget::One(contract_address));
+
+    // Create branch with 3rd element
+    let new_mmr_id = 10;
+    let index = 4;
+    let hash = 0xB1C2;
+    let proof = array![0x68D0, 0x5e58373c626c427a3d2b417634424a93ca5efa8cde09ac9747aa03f3afecb8d]
+        .span();
+    let peaks = array![
+        0x7cd5f93b55c504e2919127e13b025c86cbb135e14efb41a97c56a3f61bc48d8,
+        0x73cc8b5fc3ab909c2b7f33c34bd341df3b1d328f29c59bbe97dc53a17bbc33f,
+        0x37A8
+    ]
+        .span();
+
+    // New MMR with ID 0 should fail
+    assert(
+        dispatcher
+            .create_branch_single_element(index, hash, peaks, proof, mmr_id, mmr.last_pos, 0)
+            .is_err(),
+        'new mmr id 0 should fail'
+    );
+
+    // Source MMR with ID 0 should fail
+    assert(
+        dispatcher
+            .create_branch_single_element(index, hash, peaks, proof, 0, mmr.last_pos, new_mmr_id)
+            .is_err(),
+        'src mmr id 0 should fail'
+    );
+
+    // Source MMR must exist
+    assert(
+        dispatcher
+            .create_branch_single_element(index, hash, peaks, proof, 2, mmr.last_pos, new_mmr_id)
+            .is_err(),
+        'no src mmr should fail'
+    );
+
+    // Invalid proof should fail
+    assert(
+        dispatcher
+            .create_branch_single_element(
+                index,
+                hash,
+                peaks,
+                array![
+                    0x68D0,
+                    0x5e58373c626c427a3d2b417634424a93ca5efa8cde09ac9747aa03f3afecb8d,
+                    0x1234
+                ]
+                    .span(),
+                mmr_id,
+                mmr.last_pos,
+                new_mmr_id
+            )
+            .is_err(),
+        'invalid proof should fail'
+    );
+
+    // Valid proof should succeed
+    dispatcher
+        .create_branch_single_element(index, hash, peaks, proof, mmr_id, mmr.last_pos, new_mmr_id)
+        .unwrap();
+    let new_mmr = dispatcher.get_mmr(new_mmr_id).unwrap();
+    assert(
+        new_mmr.root == 0x2f9bb49a56c6119deabb24612297842a5ec873bd67e71e7b87b94c8e1b95d7a,
+        'new mmr root mismatch'
+    );
+    assert(new_mmr.last_pos == 1, 'new mmr last_pos mismatch');
+
+    // New MMR that already exists should fail
+    assert(
+        dispatcher
+            .create_branch_single_element(
+                index, hash, peaks, proof, mmr_id, mmr.last_pos, new_mmr_id
+            )
+            .is_err(),
+        'mmr alrd exists should fail'
+    );
+}
+
+#[test]
+fn test_create_branch_new() {
+    let (dispatcher, _) = helper_create_headers_store();
+
+    let mmr_id = 1;
+    dispatcher.create_branch_from(0, 0, mmr_id);
 
     let mmr = dispatcher.get_mmr(mmr_id);
     let expected_root = MMR_INITIAL_ROOT;
@@ -77,6 +404,25 @@ fn test_initial_tree() {
 
     let historical_root = dispatcher.get_historical_root(mmr_id, mmr.last_pos);
     assert(historical_root == expected_root, 'Wrong initial historical root');
+}
+
+#[test]
+fn test_create_branch_from() {
+    let (dispatcher, contract_address) = helper_create_safe_headers_store();
+
+    // Setup mmr with 7 elements
+    let mmr_id = 0x4a02;
+    let items = array![MMR_INITIAL_ELEMENT, 0x4AF3, 0xB1C2, 0x68D0, 0xE923, 0x0F4B, 0x37A8];
+    let mmr = helper_create_mmr_with_items(items.span());
+    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id).unwrap();
+    stop_prank(CheatTarget::One(contract_address));
+
+    let new_mmr_id = 0x8cae;
+    dispatcher.create_branch_from(mmr_id, mmr.last_pos, new_mmr_id).unwrap();
+    let new_mmr = dispatcher.get_mmr(new_mmr_id).unwrap();
+    assert(new_mmr.root == mmr.root, 'new mmr root mismatch');
+    assert(new_mmr.last_pos == mmr.last_pos, 'new mmr last_pos mismatch');
 }
 
 #[test]
@@ -89,7 +435,8 @@ fn test_process_batch_form_message() {
 
     let headers_rlp = helper_get_headers_rlp();
 
-    let mmr_id = 0;
+    let mmr_id = 1;
+    dispatcher.create_branch_from(0, 0, mmr_id);
     dispatcher
         .process_batch(
             headers_rlp,

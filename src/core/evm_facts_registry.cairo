@@ -1,7 +1,9 @@
 use starknet::ContractAddress;
+use cairo_lib::data_structures::mmr::mmr::MmrSize;
 use cairo_lib::data_structures::mmr::proof::Proof;
 use cairo_lib::data_structures::mmr::peaks::Peaks;
 use cairo_lib::utils::types::words64::Words64;
+use herodotus_eth_starknet::core::common::MmrId;
 
 #[derive(Drop, Serde)]
 enum AccountField {
@@ -52,11 +54,11 @@ trait IEVMFactsRegistry<TContractState> {
         block_header_rlp: Words64,
         account: felt252,
         mpt_proof: Span<Words64>,
-        mmr_index: usize,
+        mmr_index: MmrSize,
         mmr_peaks: Peaks,
         mmr_proof: Proof,
-        mmr_id: usize,
-        last_pos: usize,
+        mmr_id: MmrId,
+        last_pos: MmrSize,
     ) -> Span<u256>;
 
     // @notice Gets a storage slot from a proven account
@@ -85,11 +87,11 @@ trait IEVMFactsRegistry<TContractState> {
         block_header_rlp: Words64,
         account: felt252,
         mpt_proof: Span<Words64>,
-        mmr_index: usize,
+        mmr_index: MmrSize,
         mmr_peaks: Peaks,
         mmr_proof: Proof,
-        mmr_id: usize,
-        last_pos: usize,
+        mmr_id: MmrId,
+        last_pos: MmrSize,
     );
 
     // @notice Proves a storage slot at a given block
@@ -108,11 +110,13 @@ trait IEVMFactsRegistry<TContractState> {
     );
 }
 
-// @notice Contract that stores all the proven facts, entrypoint for applications using with Herodotus
+// @notice Contract that stores all the proven facts, entrypoint for applications using with
+// Herodotus
 #[starknet::contract]
 mod EVMFactsRegistry {
     use starknet::ContractAddress;
     use super::AccountField;
+    use cairo_lib::data_structures::mmr::mmr::MmrSize;
     use cairo_lib::data_structures::mmr::proof::Proof;
     use cairo_lib::data_structures::mmr::peaks::Peaks;
     use cairo_lib::hashing::poseidon::hash_words64;
@@ -121,6 +125,7 @@ mod EVMFactsRegistry {
     use cairo_lib::utils::types::words64::{
         Words64, Words64Trait, reverse_endianness_u64, bytes_used_u64
     };
+    use herodotus_eth_starknet::core::common::MmrId;
     use herodotus_eth_starknet::core::headers_store::{
         IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
     };
@@ -167,7 +172,7 @@ mod EVMFactsRegistry {
         self.headers_store.write(headers_store);
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl EVMFactsRegistry of super::IEVMFactsRegistry<ContractState> {
         // @inheritdoc IEVMFactsRegistry
         fn get_headers_store(self: @ContractState) -> ContractAddress {
@@ -200,11 +205,11 @@ mod EVMFactsRegistry {
             block_header_rlp: Words64,
             account: felt252,
             mpt_proof: Span<Words64>,
-            mmr_index: usize,
+            mmr_index: MmrSize,
             mmr_peaks: Peaks,
             mmr_proof: Proof,
-            mmr_id: usize,
-            last_pos: usize,
+            mmr_id: MmrId,
+            last_pos: MmrSize,
         ) -> Span<u256> {
             let (_, fields) = InternalFunctions::get_account(
                 self,
@@ -231,7 +236,7 @@ mod EVMFactsRegistry {
             mpt_proof: Span<Words64>
         ) -> u256 {
             let storage_hash = reverse_endianness_u256(
-                self.storage_hash.read((account, block)).expect('Storage hash not proven')
+                self.storage_hash.read((account, block)).expect('STORAGE_HASH_NOT_PROVEN')
             );
 
             // Split the slot into 4 64 bit words
@@ -254,19 +259,19 @@ mod EVMFactsRegistry {
             let key = reverse_endianness_u256(keccak_cairo_words64(words, 8));
 
             let mpt = MPTTrait::new(storage_hash);
-            let rlp_value = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
+            let rlp_value = mpt.verify(key, 64, mpt_proof).expect('MPT_VERIFICATION_FAILED');
 
             if rlp_value.is_empty() {
                 return 0;
             }
 
-            let (item, _) = rlp_decode(rlp_value).expect('Invalid RLP value');
+            let (item, _) = rlp_decode(rlp_value).expect('INVALID_RLP_VALUE');
 
             match item {
                 RLPItem::Bytes((value, value_len)) => value
                     .as_u256_be(value_len)
-                    .expect('Invalid value'),
-                RLPItem::List(_) => panic_with_felt252('Invalid header rlp')
+                    .expect('INVALID_RLP_VALUE'),
+                RLPItem::List(_) => panic_with_felt252('INVALID_HEADER_RLP')
             }
         }
 
@@ -277,11 +282,11 @@ mod EVMFactsRegistry {
             block_header_rlp: Words64,
             account: felt252,
             mpt_proof: Span<Words64>,
-            mmr_index: usize,
+            mmr_index: MmrSize,
             mmr_peaks: Peaks,
             mmr_proof: Proof,
-            mmr_id: usize,
-            last_pos: usize,
+            mmr_id: MmrId,
+            last_pos: MmrSize,
         ) {
             let (block, field_values) = InternalFunctions::get_account(
                 @self,
@@ -309,15 +314,9 @@ mod EVMFactsRegistry {
                     AccountField::StorageHash(_) => {
                         self.storage_hash.write((account, block), value);
                     },
-                    AccountField::CodeHash(_) => {
-                        self.code_hash.write((account, block), value);
-                    },
-                    AccountField::Balance(_) => {
-                        self.balance.write((account, block), value);
-                    },
-                    AccountField::Nonce(_) => {
-                        self.nonce.write((account, block), value);
-                    }
+                    AccountField::CodeHash(_) => { self.code_hash.write((account, block), value); },
+                    AccountField::Balance(_) => { self.balance.write((account, block), value); },
+                    AccountField::Nonce(_) => { self.nonce.write((account, block), value); }
                 };
 
                 i += 1;
@@ -350,11 +349,11 @@ mod EVMFactsRegistry {
             block_header_rlp: Words64,
             account: felt252,
             mpt_proof: Span<Words64>,
-            mmr_index: usize,
+            mmr_index: MmrSize,
             mmr_peaks: Peaks,
             mmr_proof: Proof,
-            mmr_id: usize,
-            last_pos: usize,
+            mmr_id: MmrId,
+            last_pos: MmrSize,
         ) -> (u256, Span<u256>) {
             let blockhash = hash_words64(block_header_rlp);
 
@@ -363,20 +362,20 @@ mod EVMFactsRegistry {
                 .verify_historical_mmr_inclusion(
                     mmr_index, blockhash, mmr_peaks, mmr_proof, mmr_id, last_pos
                 );
-            assert(mmr_inclusion, 'MMR inclusion not proven');
+            assert(mmr_inclusion, 'INVALID_MMR_PROOF');
 
             let (decoded_rlp, _) = rlp_decode_list_lazy(block_header_rlp, array![3, 8].span())
-                .expect('Invalid header rlp');
+                .expect('INVALID_HEADER_RLP');
             let mut state_root: u256 = 0;
             let mut block_number: u256 = 0;
             match decoded_rlp {
-                RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
+                RLPItem::Bytes(_) => panic_with_felt252('INVALID_HEADER_RLP'),
                 RLPItem::List(l) => {
                     let (state_root_words, _) = *l.at(0);
-                    state_root = state_root_words.as_u256_le(32).unwrap();
+                    state_root = state_root_words.as_u256_le().unwrap();
 
                     let (block_number_words, block_number_byte_len) = *l.at(1);
-                    assert(block_number_words.len() == 1, 'Invalid block number');
+                    assert(block_number_words.len() == 1, 'INVALID_BLOCK_NUMBER');
 
                     let block_number_le = *block_number_words.at(0);
                     block_number =
@@ -406,7 +405,7 @@ mod EVMFactsRegistry {
                 .span();
             let key = reverse_endianness_u256(keccak_cairo_words64(words, 4));
 
-            let rlp_account = mpt.verify(key, 64, mpt_proof).expect('MPT verification failed');
+            let rlp_account = mpt.verify(key, 64, mpt_proof).expect('MPT_VERIFICATION_FAILED');
 
             let mut account_fields = ArrayTrait::new();
             if rlp_account.is_empty() {
@@ -421,9 +420,9 @@ mod EVMFactsRegistry {
                     i += 1;
                 };
             } else {
-                let (decoded_account, _) = rlp_decode(rlp_account).expect('Invalid account rlp');
+                let (decoded_account, _) = rlp_decode(rlp_account).expect('INVALID_ACCOUNT_RLP');
                 match decoded_account {
-                    RLPItem::Bytes(_) => panic_with_felt252('Invalid account rlp'),
+                    RLPItem::Bytes(_) => panic_with_felt252('INVALID_ACCOUNT_RLP'),
                     RLPItem::List(l) => {
                         let mut i: usize = 0;
                         loop {
@@ -433,18 +432,10 @@ mod EVMFactsRegistry {
 
                             let field = fields.at(i);
                             let (field_value, field_value_len) = match field {
-                                AccountField::StorageHash(_) => {
-                                    *l.at(2)
-                                },
-                                AccountField::CodeHash(_) => {
-                                    *l.at(3)
-                                },
-                                AccountField::Balance(_) => {
-                                    *l.at(1)
-                                },
-                                AccountField::Nonce(_) => {
-                                    *l.at(0)
-                                },
+                                AccountField::StorageHash(_) => { *l.at(2) },
+                                AccountField::CodeHash(_) => { *l.at(3) },
+                                AccountField::Balance(_) => { *l.at(1) },
+                                AccountField::Nonce(_) => { *l.at(0) },
                             };
 
                             account_fields.append(field_value.as_u256_be(field_value_len).unwrap());

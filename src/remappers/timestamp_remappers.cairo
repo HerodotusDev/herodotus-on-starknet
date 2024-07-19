@@ -6,13 +6,14 @@
 
 #[starknet::contract]
 mod TimestampRemappers {
+    use herodotus_eth_starknet::core::common::MmrId;
     use herodotus_eth_starknet::remappers::interface::{
         ITimestampRemappers, Headers, OriginElement, Proof, Peaks, Words64, ProofElement,
-        BinarySearchTree
+        BinarySearchTree, MapperId
     };
     use starknet::ContractAddress;
     use cairo_lib::hashing::poseidon::{PoseidonHasher, hash_words64};
-    use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait};
+    use cairo_lib::data_structures::mmr::mmr::{MMR, MMRTrait, MmrSize, MmrElement};
     use cairo_lib::data_structures::mmr::utils::{leaf_index_to_mmr_index};
     use cairo_lib::encoding::rlp::{RLPItem, rlp_decode_list_lazy};
     use cairo_lib::utils::types::words64::{reverse_endianness_u64, bytes_used_u64};
@@ -33,17 +34,17 @@ mod TimestampRemappers {
 
     #[derive(Drop, starknet::Event)]
     struct MapperCreated {
-        mapper_id: usize,
+        mapper_id: MapperId,
         start_block: u256
     }
 
     #[derive(Drop, starknet::Event)]
     struct RemappedBlocks {
-        mapper_id: usize,
+        mapper_id: MapperId,
         start_block: u256,
         end_block: u256,
-        mmr_root: felt252,
-        mmr_size: usize
+        mmr_root: MmrElement,
+        mmr_size: MmrSize
     }
 
     //
@@ -64,40 +65,36 @@ mod TimestampRemappers {
     #[storage]
     struct Storage {
         headers_store: ContractAddress,
-        // id => mapper
-        mappers: LegacyMap::<usize, Mapper>,
-        mappers_count: usize,
-        // id => mmr
-        mappers_mmrs: LegacyMap::<usize, MMR>,
-        // (id, size) => root
-        mappers_mmrs_history: LegacyMap::<(usize, usize), felt252>,
+        mappers: LegacyMap::<MapperId, Mapper>,
+        mappers_mmrs: LegacyMap::<MapperId, MMR>,
+        mappers_mmrs_history: LegacyMap::<(MapperId, MmrSize), MmrElement>,
     }
 
     #[constructor]
     fn constructor(ref self: ContractState, headers_store: ContractAddress) {
         self.headers_store.write(headers_store);
-        self.mappers_count.write(0);
     }
 
     //
     // External
     //
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl TimestampRemappers of ITimestampRemappers<ContractState> {
         // Creates a new mapper and returns its ID.
-        fn create_mapper(ref self: ContractState, start_block: u256) -> usize {
+        fn create_mapper(
+            ref self: ContractState, start_block: u256, mapper_id: MapperId
+        ) -> MapperId {
             let mmr: MMR = Default::default();
 
-            let mapper_id = self.mappers_count.read();
+            assert(start_block != 0, 'START_BLOCK_0_NOT_ALLOWED');
+            assert(self.mappers.read(mapper_id).start_block == 0, 'MAPPER_ID_ALREADY_EXISTS');
 
             self.mappers_mmrs_history.write((mapper_id, 0), mmr.root);
             self.mappers_mmrs.write(mapper_id, mmr);
 
             let mapper = Mapper { start_block, elements_count: 0, last_timestamp: 0 };
             self.mappers.write(mapper_id, mapper);
-
-            self.mappers_count.write(mapper_id + 1);
 
             self.emit(Event::MapperCreated(MapperCreated { mapper_id, start_block }));
 
@@ -107,16 +104,17 @@ mod TimestampRemappers {
         // Adds elements from other trusted data sources to the given mapper.
         fn reindex_batch(
             ref self: ContractState,
-            mapper_id: usize,
+            mapper_id: MapperId,
             mapper_peaks: Peaks,
             origin_elements: Span<OriginElement>
         ) {
             let len = origin_elements.len(); // Count of elements in the batch to append
-            assert(len != 0, 'Empty batch');
+            assert(len != 0, 'EMPTY_BATCH');
 
             // Fetch from storage
             let headers_store_addr = self.headers_store.read();
             let mut mapper = self.mappers.read(mapper_id);
+            assert(mapper.start_block != 0, 'MAPPER_DOES_NOT_EXIST');
             let mut mapper_mmr = self.mappers_mmrs.read(mapper_id);
 
             // Determine the expected block number of the first element in the batch
@@ -130,17 +128,18 @@ mod TimestampRemappers {
                     break ();
                 }
 
-                // 1. Verify that the block number is correct (i.e., matching with the expected block)
+                // 1. Verify that the block number is correct (i.e., matching with the expected
+                // block)
                 let origin_element: @OriginElement = origin_elements.at(idx);
                 let (origin_element_block_number, origin_element_timestamp) =
                     InternalFunctions::extract_header_block_number_and_timestamp(
                     *origin_element.header
                 );
-                assert(origin_element_block_number == expected_block, 'Unexpected block number');
+                assert(origin_element_block_number == expected_block, 'UNEXPECTED_BLOCK_NUMBER');
 
                 // 2. Verify that the header rlp is correct (i.e., matching with the leaf value)
                 let current_hash = hash_words64(*origin_element.header);
-                assert(current_hash == *origin_element.leaf_value.into(), 'Invalid header rlp');
+                assert(current_hash == *origin_element.leaf_value.into(), 'INVALID_HEADER_RLP');
 
                 // 3. Verify that the inclusion proof of the leaf is valid
                 let is_valid_proof = IHeadersStoreDispatcher {
@@ -154,7 +153,7 @@ mod TimestampRemappers {
                         *origin_element.tree_id,
                         *origin_element.last_pos
                     );
-                assert(is_valid_proof, 'Invalid proof');
+                assert(is_valid_proof, 'INVALID_MMR_PROOF');
 
                 // Add the block timestamp to the mapper MMR so we can binary search it later
                 let (_, p) = mapper_mmr
@@ -218,7 +217,7 @@ mod TimestampRemappers {
         }
 
         // Getter for the last timestamp of a given mapper.
-        fn get_last_mapper_timestamp(self: @ContractState, mapper_id: usize) -> u256 {
+        fn get_last_mapper_timestamp(self: @ContractState, mapper_id: MapperId) -> u256 {
             let mapper = self.mappers.read(mapper_id);
             mapper.last_timestamp
         }
@@ -246,9 +245,7 @@ mod TimestampRemappers {
             let ((block_number, block_number_byte_len), (timestamp, timestamp_byte_len)) =
                 match decoded_rlp {
                 RLPItem::Bytes(_) => panic_with_felt252('Invalid header rlp'),
-                RLPItem::List(l) => {
-                    (*l.at(0), *l.at(1))
-                },
+                RLPItem::List(l) => { (*l.at(0), *l.at(1)) },
             };
             (
                 reverse_endianness_u64(*block_number.at(0), Option::Some(block_number_byte_len))
@@ -301,7 +298,8 @@ mod TimestampRemappers {
                 mid = (left + right) / 2;
                 let proof_element: @ProofElement = proofs.at(proof_idx);
                 assert(
-                    (*proof_element.index).into() == leaf_index_to_mmr_index(mid + 1),
+                    (*proof_element.index)
+                        .into() == leaf_index_to_mmr_index(mid.try_into().unwrap() + 1),
                     'Unexpected proof index'
                 );
 
@@ -314,7 +312,7 @@ mod TimestampRemappers {
                         proof: *proof_element.proof,
                     )
                     .unwrap();
-                assert(is_valid_proof, 'Invalid proof');
+                assert(is_valid_proof, 'INVALID_MMR_PROOF');
 
                 if x >= mid_val {
                     left = mid + 1;
@@ -333,7 +331,9 @@ mod TimestampRemappers {
                 // Verify the proof if it has not already been checked
                 let tree_closest_low_val = tree.left_neighbor.unwrap();
                 assert(
-                    tree_closest_low_val.index.into() == leaf_index_to_mmr_index(closest_idx + 1),
+                    tree_closest_low_val
+                        .index
+                        .into() == leaf_index_to_mmr_index(closest_idx.try_into().unwrap() + 1),
                     'Unexpected proof index (c)'
                 );
 
@@ -346,7 +346,7 @@ mod TimestampRemappers {
                         tree_closest_low_val.proof,
                     )
                     .unwrap();
-                assert(is_valid_low_proof, 'Invalid proof');
+                assert(is_valid_low_proof, 'INVALID_MMR_PROOF');
             }
 
             return Option::Some(closest_idx);

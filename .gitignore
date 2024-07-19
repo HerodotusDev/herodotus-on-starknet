@@ -2,3 +2,7 @@ target
 .DS_Store
 
 l1/broadcast/**
+
+.snfoundry_cache
+.snfoundry_trace
+profile.pb.gz

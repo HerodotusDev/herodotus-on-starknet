@@ -1,0 +1,5 @@
+[[call]]
+call_type = "invoke"
+contract_address = "0x0763c1a0ec1d64afe2d8d0a2c0cab6fd494dcb26d08ef1020b27aa5695761e21"
+function = "set_l1_message_sender"
+inputs = ["0x423F7744017600727cE4789933E4648068835E28"]
