@@ -353,7 +353,7 @@ mod HeadersStore {
 
                 let reference_block = reference_block.unwrap();
                 start_block = reference_block - 1;
-                end_block = start_block - headers_rlp.len().into() + 1;
+                end_block = (start_block + 1) - headers_rlp.len().into();
 
                 let initial_blockhash = self.received_blocks.read(reference_block);
                 assert(initial_blockhash != Zeroable::zero(), 'BLOCK_NOT_RECEIVED');
