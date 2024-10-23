@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 
-use snforge_std::{declare, ContractClassTrait, start_prank, stop_prank, CheatTarget};
+use snforge_std::{
+    declare, start_cheat_caller_address, stop_cheat_caller_address, ContractClassTrait,
+    DeclareResultTrait
+};
 use starknet::ContractAddress;
 use cairo_lib::data_structures::mmr::mmr::MMR;
 use cairo_lib::data_structures::mmr::mmr::MMRTrait;
@@ -16,7 +19,7 @@ use herodotus_eth_starknet::core::headers_store::{
 use herodotus_eth_starknet::core::common::MmrId;
 
 fn deploy_headers_store() -> ContractAddress {
-    let contract = declare("HeadersStore").unwrap();
+    let contract = declare("HeadersStore").unwrap().contract_class();
     let mut constructor_calldata = ArrayTrait::new();
     constructor_calldata.append(0);
 
@@ -25,7 +28,7 @@ fn deploy_headers_store() -> ContractAddress {
 }
 
 fn deploy_timestamp_remappers(headers_store: ContractAddress) -> ContractAddress {
-    let contract = declare("TimestampRemappers").unwrap();
+    let contract = declare("TimestampRemappers").unwrap().contract_class();
     let mut constructor_calldata: Array<felt252> = ArrayTrait::new();
     constructor_calldata.append(headers_store.into());
 
@@ -349,7 +352,7 @@ fn inner_test_reindex_batch(
         },
     ];
     remapper_dispatcher.reindex_batch(mapper_id, ArrayTrait::new().span(), origin_elements.span());
-// From this point on, mapper_peaks has root
+    // From this point on, mapper_peaks has root
 // 0x215ea4dbc30f0b14338d306f0035277c856c486126cd34966a82ead2a0a1c01 and 4 as elements count
 }
 
@@ -372,12 +375,12 @@ fn test_remappers() {
     let headers_store_dispatcher = IHeadersStoreDispatcher { contract_address: headers_store };
     let mmr_id = 0x123; // First MMR
 
-    start_prank(CheatTarget::One(headers_store), 0.try_into().unwrap());
+    start_cheat_caller_address(headers_store, 0.try_into().unwrap());
     headers_store_dispatcher
         .create_branch_from_message(
             0x25aedbc0ddea804ce21d29a39f00358f68df0e462114f75b0576182d08db0, 4, 1, mmr_id
         );
-    stop_prank(CheatTarget::One(headers_store));
+    stop_cheat_caller_address(headers_store);
 
     inner_test_reindex_batch(remapper_dispatcher, mapper_id, mmr_id);
 

@@ -1,5 +1,7 @@
-use snforge_std::{declare, ContractClassTrait, start_prank, stop_prank, CheatTarget};
-
+use snforge_std::{
+    declare, start_cheat_caller_address, stop_cheat_caller_address, ContractClassTrait,
+    DeclareResultTrait
+};
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher
 };
@@ -20,14 +22,14 @@ const TEST_BLOCK: u256 = 17000000;
 fn helper_create_facts_registry(
     mmr_root: felt252, mmr_size: MmrSize
 ) -> (IEVMFactsRegistryDispatcher, ContractAddress) {
-    let contract = declare("HeadersStore").unwrap();
+    let contract = declare("HeadersStore").unwrap().contract_class();
     let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     let mut headers_store = IHeadersStoreDispatcher { contract_address };
-    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_cheat_caller_address(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     headers_store.create_branch_from_message(mmr_root, mmr_size, 0, 1);
-    stop_prank(CheatTarget::One(contract_address));
+    stop_cheat_caller_address(contract_address);
 
-    let contract = declare("EVMFactsRegistry").unwrap();
+    let contract = declare("EVMFactsRegistry").unwrap().contract_class();
     let (contract_address, _) = contract.deploy(@array![contract_address.into()]).unwrap();
     (IEVMFactsRegistryDispatcher { contract_address }, contract_address)
 }

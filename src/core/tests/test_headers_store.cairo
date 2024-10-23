@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 
-use snforge_std::{declare, ContractClassTrait, start_prank, stop_prank, CheatTarget};
+use snforge_std::{
+    declare, ContractClassTrait, DeclareResultTrait, start_cheat_caller_address,
+    stop_cheat_caller_address
+};
 use herodotus_eth_starknet::core::headers_store::{
     IHeadersStoreDispatcherTrait, IHeadersStoreDispatcher, IHeadersStoreSafeDispatcherTrait,
     IHeadersStoreSafeDispatcher
@@ -18,13 +21,13 @@ const MMR_INITIAL_ROOT: MmrElement =
     0x6759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
 fn helper_create_headers_store() -> (IHeadersStoreDispatcher, ContractAddress) {
-    let contract = declare("HeadersStore").unwrap();
+    let contract = declare("HeadersStore").unwrap().contract_class();
     let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreDispatcher { contract_address }, contract_address)
 }
 
 fn helper_create_safe_headers_store() -> (IHeadersStoreSafeDispatcher, ContractAddress) {
-    let contract = declare("HeadersStore").unwrap();
+    let contract = declare("HeadersStore").unwrap().contract_class();
     let (contract_address, _) = contract.deploy(@array![COMMITMENTS_INBOX_ADDRESS]).unwrap();
     (IHeadersStoreSafeDispatcher { contract_address }, contract_address)
 }
@@ -35,9 +38,9 @@ fn helper_receive_hash(
     dispatcher: IHeadersStoreDispatcher,
     contract_address: ContractAddress
 ) {
-    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_cheat_caller_address(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.receive_hash(blockhash, block_number);
-    stop_prank(CheatTarget::One(contract_address));
+    stop_cheat_caller_address(contract_address);
 }
 
 #[test]
@@ -193,10 +196,9 @@ fn test_header_block_1() {
     let mmr_id = 1;
 
     let (dispatcher, contract_address) = helper_create_headers_store();
-
-    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_cheat_caller_address(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id);
-    stop_prank(CheatTarget::One(contract_address));
+    stop_cheat_caller_address(contract_address);
     assert(dispatcher.get_mmr_root(mmr_id) == mmr.root, 'Root not set');
 
     dispatcher
@@ -209,7 +211,6 @@ fn test_header_block_1() {
             Option::Some(mmr_proof)
         );
 }
-
 #[test]
 #[feature("safe_dispatcher")]
 fn test_receive_hash_wrong_address() {
@@ -242,7 +243,7 @@ fn test_create_branch_from_message() {
     let root = 0x123123123;
     let size = 10;
 
-    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_cheat_caller_address(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
 
     // Create MMR.
     assert(dispatcher.get_mmr_size(mmr_id_1).unwrap() == 0, 'Initial mmr size should be 0');
@@ -272,7 +273,7 @@ fn test_create_branch_from_message() {
     assert(dispatcher.get_mmr_size(mmr_id_2).unwrap() == size, 'Mmr size mismatch');
     assert(dispatcher.get_mmr_root(mmr_id_2).unwrap() == root, 'Mmr root mismatch');
 
-    stop_prank(CheatTarget::One(contract_address));
+    stop_cheat_caller_address(contract_address);
 
     let mmr_id_3 = 0x8124a;
 
@@ -306,9 +307,9 @@ fn test_create_branch_single_element() {
     let mmr_id = 1;
     let items = array![MMR_INITIAL_ELEMENT, 0x4AF3, 0xB1C2, 0x68D0, 0xE923, 0x0F4B, 0x37A8];
     let mmr = helper_create_mmr_with_items(items.span());
-    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_cheat_caller_address(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id).unwrap();
-    stop_prank(CheatTarget::One(contract_address));
+    stop_cheat_caller_address(contract_address);
 
     // Create branch with 3rd element
     let new_mmr_id = 10;
@@ -414,9 +415,9 @@ fn test_create_branch_from() {
     let mmr_id = 0x4a02;
     let items = array![MMR_INITIAL_ELEMENT, 0x4AF3, 0xB1C2, 0x68D0, 0xE923, 0x0F4B, 0x37A8];
     let mmr = helper_create_mmr_with_items(items.span());
-    start_prank(CheatTarget::One(contract_address), COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
+    start_cheat_caller_address(contract_address, COMMITMENTS_INBOX_ADDRESS.try_into().unwrap());
     dispatcher.create_branch_from_message(mmr.root, mmr.last_pos, 0, mmr_id).unwrap();
-    stop_prank(CheatTarget::One(contract_address));
+    stop_cheat_caller_address(contract_address);
 
     let new_mmr_id = 0x8cae;
     dispatcher.create_branch_from(mmr_id, mmr.last_pos, new_mmr_id).unwrap();
@@ -737,7 +738,7 @@ fn helper_get_headers_rlp() -> Span<Words64> {
             2995362435
         ]
             .span(),
-    //array![
+        //array![
     //18219417174019932921,
     //16083864134760656902,
     //10295426118574649922,
@@ -880,3 +881,4 @@ fn helper_get_headers_rlp() -> Span<Words64> {
     ]
         .span()
 }
+
