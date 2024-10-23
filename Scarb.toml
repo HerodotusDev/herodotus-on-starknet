@@ -3,6 +3,10 @@ name = "herodotus_eth_starknet"
 version = "0.1.0"
 authors = ["Herodotus Dev"]
 
+[lib]
+sierra = true
+casm = true
+
 [[target.starknet-contract]]
 sierra = true
 casm = true
